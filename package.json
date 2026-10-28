@@ -1,0 +1,24 @@
+{
+  "name": "oblivion",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Dashboard autoalojado, seguro y personalizable para tu homelab",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev -w @oblivion/server\" \"npm run dev -w @oblivion/web\"",
+    "build": "npm run build -w @oblivion/web && npm run build -w @oblivion/server",
+    "start": "npm run start -w @oblivion/server",
+    "test": "npm run test -w @oblivion/server && npm run test -w @oblivion/web",
+    "typecheck": "npm run typecheck -w @oblivion/sdk && npm run typecheck -w @oblivion/server && npm run typecheck -w @oblivion/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
