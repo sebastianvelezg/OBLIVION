@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="96" viewBox="0 0 360 96" role="img" aria-label="Oblivion">
+  <defs>
+    <linearGradient id="g" x1="8" y1="8" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a5b0ff"/>
+      <stop offset="1" stop-color="#6674ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="88" height="88" rx="26" fill="#0b0d13"/>
+  <circle cx="48" cy="48" r="25" fill="none" stroke="url(#g)" stroke-width="10"/>
+  <circle cx="48" cy="48" r="8" fill="url(#g)"/>
+  <text x="112" y="62" font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif" font-size="40" font-weight="700" letter-spacing="9" fill="#8b7cff">OBLIVION</text>
+</svg>
