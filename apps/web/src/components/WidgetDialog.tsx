@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import type { CatalogWidget, WidgetDTO } from "@oblivion/sdk";
+import type { CatalogWidget, WidgetDTO, WidgetStyle } from "@oblivion/sdk";
 import { api } from "../api";
 import { ConfigForm, defaultsFor } from "./ConfigForm";
+import { ConnectionFields, useConnections } from "./ConnectionsPanel";
+import { WidgetStyleFields } from "./WidgetStyleFields";
 import { Field, Modal } from "./ui";
 
 /** Elegir un widget del catálogo y configurarlo. */
@@ -71,21 +73,49 @@ type Props =
   | { mode: "add"; pageId: string; def: CatalogWidget; onBack: () => void; onClose: () => void }
   | { mode: "edit"; widget: WidgetDTO; def: CatalogWidget; onClose: () => void };
 
+const NEW = "new";
+
 function ConfigureDialog(props: Props) {
   const { def, onClose } = props;
   const qc = useQueryClient();
   const editing = props.mode === "edit";
+  const usesConnection = def.connection.length > 0;
   const [title, setTitle] = useState(editing ? props.widget.title : "");
   const [values, setValues] = useState<Record<string, any>>(() => ({
     ...defaultsFor(def.config),
     ...(editing ? props.widget.config : {}),
   }));
 
+  const [style, setStyle] = useState<WidgetStyle>(editing ? (props.widget.style ?? {}) : {});
+
+  // Conexión: una existente del mismo plugin o una nueva que se crea al guardar.
+  const connsQ = useConnections(usesConnection);
+  const existing = (connsQ.data?.connections ?? []).filter((c) => c.pluginId === def.pluginId);
+  const [picked, setPicked] = useState<string | null>(editing ? props.widget.connectionId : null);
+  const connectionId = picked ?? existing[0]?.id ?? NEW;
+  const [newName, setNewName] = useState(def.pluginName);
+  const [newValues, setNewValues] = useState<Record<string, any>>(() => defaultsFor(def.connection));
+
   const save = useMutation({
-    mutationFn: () =>
-      editing
-        ? api.patch(`/widgets/${props.widget.id}`, { title, config: values })
-        : api.post(`/pages/${props.pageId}/widgets`, { type: def.fullType, title, config: values }),
+    mutationFn: async () => {
+      let useId: string | undefined;
+      if (usesConnection) {
+        if (connectionId === NEW) {
+          const made = await api.post<{ connection: { id: string } }>("/connections", {
+            pluginId: def.pluginId,
+            name: newName,
+            config: newValues,
+          });
+          useId = made.connection.id;
+        } else {
+          useId = connectionId;
+        }
+      }
+      return editing
+        ? api.patch(`/widgets/${props.widget.id}`, { title, config: values, connectionId: useId, style })
+        : api.post(`/pages/${props.pageId}/widgets`, { type: def.fullType, title, config: values, connectionId: useId, style });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["connections"] }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["pages"] });
       if (editing) qc.invalidateQueries({ queryKey: ["widget-data", props.widget.id] });
@@ -107,7 +137,11 @@ function ConfigureDialog(props: Props) {
           <button className="btn" onClick={onClose}>
             Cancelar
           </button>
-          <button className="btn btn-primary" onClick={() => save.mutate()} disabled={save.isPending}>
+          <button
+            className="btn btn-primary"
+            onClick={() => save.mutate()}
+            disabled={save.isPending || (usesConnection && connsQ.isLoading)}
+          >
             {save.isPending ? "Guardando…" : editing ? "Guardar" : "Añadir"}
           </button>
         </>
@@ -117,11 +151,57 @@ function ConfigureDialog(props: Props) {
         <Field label="Título (opcional)">
           <input className="input" value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} />
         </Field>
-        <ConfigForm
-          fields={def.config}
-          values={values}
-          onChange={setValues}
-          secretsSet={editing ? props.widget.secretsSet : []}
+
+        {usesConnection && (
+          <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3">
+            <Field
+              label={`Conexión a ${def.pluginName}`}
+              help={
+                existing.length > 0
+                  ? "La URL y las credenciales se guardan una sola vez y las comparten todos los widgets. Edítalas en Ajustes → Conexiones."
+                  : "Aún no hay ninguna: se creará y podrás reutilizarla en los demás widgets."
+              }
+            >
+              <select className="input" value={connectionId} onChange={(e) => setPicked(e.target.value)}>
+                {existing.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value={NEW}>＋ Nueva conexión…</option>
+              </select>
+            </Field>
+            {connectionId === NEW && (
+              <ConnectionFields
+                fields={def.connection}
+                name={newName}
+                onName={setNewName}
+                values={newValues}
+                onValues={setNewValues}
+                test={def.testable ? { pluginId: def.pluginId } : undefined}
+              />
+            )}
+          </div>
+        )}
+
+        {def.config.length > 0 || !usesConnection ? (
+          <ConfigForm
+            fields={def.config}
+            values={values}
+            onChange={setValues}
+            secretsSet={editing ? props.widget.secretsSet : []}
+          />
+        ) : (
+          <p className="text-sm text-muted">Este widget no tiene más opciones: usa la conexión elegida.</p>
+        )}
+        <WidgetStyleFields
+          style={style}
+          onChange={setStyle}
+          linkHint={
+            style.link || def.component || def.connection.length === 0
+              ? undefined
+              : (existing.find((c) => c.id === connectionId)?.config.url as string | undefined)
+          }
         />
         {save.error && (
           <p className="text-sm text-bad" role="alert">

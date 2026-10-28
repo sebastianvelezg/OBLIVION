@@ -77,6 +77,8 @@ export interface ListView {
     /** 0..1 */
     progress?: number;
     tone?: Tone;
+    /** Enlace `http(s)` que abre el título en otra pestaña (titulares de un feed, etc.). */
+    href?: string;
   }[];
 }
 
@@ -106,7 +108,28 @@ export interface MediaView {
   }[];
 }
 
-export type View = MetricView | StatsView | ListView | MessageView | MediaView;
+/** Gráfica de líneas (historial de velocidad, temperaturas...). */
+export interface ChartView {
+  kind: "chart";
+  /** Unidad de los valores, p. ej. «Mbps». */
+  unit?: string;
+  /** Etiquetas del eje X (una por punto); solo se muestran la primera y la última. */
+  labels?: string[];
+  /** De la más antigua a la más reciente. Hasta 4 series de hasta 200 puntos. */
+  series: { name: string; points: number[] }[];
+  caption?: string;
+}
+
+/** Vista simple (todo salvo `sections`). */
+export type LeafView = MetricView | StatsView | ListView | MessageView | MediaView | ChartView;
+
+/** Varias vistas apiladas en un solo widget, cada una con su título (panel combinado). */
+export interface SectionsView {
+  kind: "sections";
+  sections: { title?: string; view: LeafView }[];
+}
+
+export type View = LeafView | SectionsView;
 
 // ───────────────────────────── Contexto del plugin ─────────────────────────
 
@@ -169,6 +192,11 @@ export interface WidgetDefinition {
    * Reservado para el plugin `core`.
    */
   component?: string;
+  /**
+   * Si el plugin tiene conexión con un campo `url`, el título del widget abre esa
+   * dirección. `false` lo desactiva (p. ej. cuando es una API sin interfaz web).
+   */
+  openLink?: boolean;
   /** Carga datos en el servidor y devuelve una vista declarativa. */
   load?(ctx: PluginContext): Promise<View> | View;
   /**
@@ -189,6 +217,19 @@ export interface PluginDefinition {
     /** Hostnames fijos a los que el plugin puede llamar (p. ej. una API pública). */
     network?: string[];
   };
+  /**
+   * Datos de conexión compartidos por todos los widgets del plugin (URL, API key...).
+   * El usuario los escribe una sola vez como «conexión» y cada widget elige una;
+   * `ctx.config` recibe los campos de la conexión junto con los del widget.
+   * Las claves no pueden coincidir con las de `config` de ningún widget.
+   */
+  connection?: Field[];
+  /**
+   * Comprueba que la conexión funciona (botón «Probar conexión»). Recibe la conexión en
+   * `ctx.config`. Devuelve un texto de éxito («Conectado a Jellyfin 10.9») o llama a
+   * `ctx.fail()` con el motivo.
+   */
+  test?(ctx: PluginContext): Promise<string | void> | string | void;
   widgets: WidgetDefinition[];
 }
 
@@ -211,8 +252,24 @@ export interface CatalogWidget {
   defaultSize: { w: number; h: number };
   minSize: { w: number; h: number };
   config: Field[];
+  /** Campos de la conexión del plugin (vacío si el plugin no usa conexiones). */
+  connection: Field[];
+  /** El plugin sabe probar su conexión. */
+  testable: boolean;
   component?: string;
   refreshSeconds: number;
+}
+
+/** Retoques de aspecto de un widget concreto (todo opcional: sin definir, manda el estilo global). */
+export interface WidgetStyle {
+  /** `auto`: solo si escribes un título; `show`: siempre (con el nombre del widget); `hide`: nunca. */
+  titleMode?: "auto" | "show" | "hide";
+  /** Color de acento propio (`#rrggbb`), p. ej. rojo para alertas. */
+  accent?: string;
+  /** Opacidad propia del fondo de la tarjeta, 10–100. */
+  opacity?: number;
+  /** Dirección que abre el título (por defecto, la de la conexión). */
+  link?: string;
 }
 
 export interface WidgetDTO {
@@ -224,16 +281,36 @@ export interface WidgetDTO {
   state: unknown;
   /** Claves de campos `secret` que ya tienen valor guardado. */
   secretsSet: string[];
+  /** Conexión que usa el widget (`null` si su plugin no necesita ninguna). */
+  connectionId: string | null;
+  style: WidgetStyle;
+  /** Dirección que abre el título del widget, si la hay. */
+  link: string | null;
   x: number;
   y: number;
   w: number;
   h: number;
 }
 
+/** Conexión a un servicio (Jellyfin, Speedtest Tracker...) tal como la ve el administrador. */
+export interface ConnectionDTO {
+  id: string;
+  pluginId: string;
+  name: string;
+  /** Campos no secretos. */
+  config: Record<string, unknown>;
+  /** Claves de campos `secret` que ya tienen valor guardado. */
+  secretsSet: string[];
+  /** Cuántos widgets la usan. */
+  widgets: number;
+}
+
 export interface PageDTO {
   id: string;
   title: string;
   position: number;
+  /** Fondo propio de la página (`null`: usa el de la apariencia general). */
+  background: Appearance["background"] | null;
   widgets: WidgetDTO[];
 }
 
@@ -242,7 +319,7 @@ export interface PageDTO {
 export const PALETTE_IDS = ["midnight", "graphite", "ocean", "forest", "plum", "ember"] as const;
 export type PaletteId = (typeof PALETTE_IDS)[number];
 
-export type CardStyle = "glass" | "solid" | "outline" | "flat";
+export type CardStyle = "glass" | "solid" | "outline" | "flat" | "neon" | "brutal";
 
 /** Apariencia de todo el dashboard (la edita el administrador). */
 export interface Appearance {

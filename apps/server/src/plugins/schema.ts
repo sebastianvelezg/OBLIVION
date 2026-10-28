@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Field, View } from "@oblivion/sdk";
+import type { Field, LeafView, View } from "@oblivion/sdk";
 
 /** Clave opaca de una imagen de `MediaView`: nada que pueda formar rutas o consultas. */
 export const IMAGE_KEY = /^[A-Za-z0-9._~-]{1,100}$/;
@@ -36,6 +36,7 @@ export const widgetDefSchema = z.object({
   config: z.array(fieldSchema).max(30),
   refreshSeconds: z.number().int().min(5).max(86400).optional(),
   component: z.string().max(40).optional(),
+  openLink: z.boolean().optional(),
   load: z.function().optional(),
   image: z.function().optional(),
 });
@@ -47,6 +48,8 @@ export const pluginDefSchema = z.object({
   description: z.string().max(300).optional(),
   author: z.string().max(80).optional(),
   permissions: z.object({ network: z.array(z.string().max(253)).max(20).optional() }).optional(),
+  connection: z.array(fieldSchema).max(10).optional(),
+  test: z.function().optional(),
   widgets: z.array(widgetDefSchema).max(50),
 });
 
@@ -57,7 +60,7 @@ export const pluginDefSchema = z.object({
 const short = z.string().max(300);
 const tone = z.enum(["neutral", "good", "warn", "bad"]);
 
-export const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
+const leafSchema: z.ZodType<LeafView> = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("metric"),
     icon: z.string().max(8).optional(),
@@ -87,11 +90,20 @@ export const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
           right: short.optional(),
           progress: z.number().min(0).max(1).optional(),
           tone: tone.optional(),
+          // Solo http(s): nada de `javascript:` ni `data:` aunque el texto venga de un feed ajeno.
+          href: z.string().max(500).regex(/^https?:\/\//i).optional(),
         }),
       )
       .max(50),
   }),
   z.object({ kind: z.literal("message"), tone: tone.optional(), text: z.string().max(500) }),
+  z.object({
+    kind: z.literal("chart"),
+    unit: z.string().max(20).optional(),
+    labels: z.array(z.string().max(40)).max(200).optional(),
+    series: z.array(z.object({ name: short, points: z.array(z.number()).max(200) })).min(1).max(4),
+    caption: short.optional(),
+  }),
   z.object({
     kind: z.literal("media"),
     empty: short.optional(),
@@ -106,5 +118,13 @@ export const viewSchema: z.ZodType<View> = z.discriminatedUnion("kind", [
         }),
       )
       .max(50),
+  }),
+]);
+
+export const viewSchema: z.ZodType<View> = z.union([
+  leafSchema,
+  z.object({
+    kind: z.literal("sections"),
+    sections: z.array(z.object({ title: short.optional(), view: leafSchema })).min(1).max(6),
   }),
 ]);

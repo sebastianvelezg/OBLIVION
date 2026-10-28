@@ -9,6 +9,7 @@ import { SecretBox } from "../src/crypto.js";
 import { openDb } from "../src/db.js";
 import { PluginRegistry } from "../src/plugins/registry.js";
 import { WidgetRuntime } from "../src/plugins/runtime.js";
+import type { createSafeHttp } from "../src/security/safe-http.js";
 
 process.env.NODE_ENV = "test";
 
@@ -18,7 +19,7 @@ const REAL_PLUGINS = path.resolve(import.meta.dirname, "../../../plugins");
 
 export async function makeApp(
   extra: Partial<ReturnType<typeof loadConfig>> = {},
-  opts: { realPlugins?: boolean } = {},
+  opts: { realPlugins?: boolean; http?: typeof createSafeHttp } = {},
 ) {
   const config = {
     ...loadConfig({ OBLIVION_DATA_DIR: "/nonexistent", OBLIVION_WEB_DIR: "/nonexistent" }),
@@ -57,7 +58,7 @@ export async function makeApp(
       ],
     }),
   );
-  const runtime = new WidgetRuntime(box, () => {});
+  const runtime = new WidgetRuntime(box, () => {}, opts.http);
   const app = createApp({ config, db, box, registry, runtime });
   return { app, db, box, registry, runtime, config };
 }

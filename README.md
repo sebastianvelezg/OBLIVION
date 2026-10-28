@@ -18,7 +18,7 @@
   <img src="docs/img/dashboard-glass.jpg" alt="Oblivion con el estilo Cristal" width="100%">
 </p>
 
-> **English:** Oblivion is a self-hosted, security-focused dashboard for your homelab. Visual drag-and-drop editor (no YAML), deep theming (glass, solid, outline, wallpapers…), built-in notes/reminders/links, and a tiny plugin system (Jellyfin, Speedtest Tracker, service status and weather included). The interface and documentation are in Spanish for now; translations are welcome.
+> **English:** Oblivion is a self-hosted, security-focused dashboard for your homelab. Visual drag-and-drop editor (no YAML), deep theming (glass, solid, outline, wallpapers…), built-in notes/reminders/links, and a tiny plugin system (Jellyfin, Jellyseerr, qBittorrent, Transmission, Glances, Docker, Pi-hole, AdGuard Home, Uptime Kuma, Speedtest Tracker, service status and weather included). The interface and documentation are in Spanish for now; translations are welcome.
 
 > **Estado: versión alfa (0.x).** Funciona y está probado, pero todavía es joven: haz copia de seguridad antes de actualizar y abre un *issue* si algo no te cuadra.
 
@@ -33,20 +33,33 @@ Los dashboards de homelab suelen pedirte editar archivos de configuración y se 
 - Se adapta al móvil.
 
 **Personalización a fondo** (botón 🎨, con vista en vivo)
-- 5 estilos listos: **Cristal**, **Sólido**, **Minimalista**, **Contorno** y **Terminal**.
+- 10 estilos listos: **Cristal**, **Sólido**, **Minimalista**, **Contorno**, **Neón**, **Brutalista**, **Editorial**, **Burbuja**, **Profundo** y **Terminal**.
 - 6 paletas, modo oscuro/claro/automático y color de acento libre.
 - Tarjetas con opacidad, desenfoque, redondeo y sombra ajustables.
-- Fondo: aurora, liso, degradado o **tu propia foto** (con desenfoque y oscurecimiento).
+- Fondo: aurora, liso, degradado o **tu propia foto** (con desenfoque y oscurecimiento), y **uno distinto por página**.
+- Retoques **por widget**: color de acento y opacidad propios (p. ej. rojo para alertas), título visible u oculto y enlace.
 - 3 densidades y 3 tipografías.
 
 **Widgets de uso diario**
 - **Notas** en Markdown con tareas que se marcan con un clic.
 - **Recordatorios** con fecha y hora; avisan cuando llega la hora.
-- **Enlaces**, **Reloj**, **Calendario**, **Calculadora** y **Página web** embebida.
+- **Enlaces**, **Reloj**, **Calendario**, **Calculadora**, **Buscador**, **Saludo** y **Página web** embebida.
 
 **Integraciones** (plugins)
-- **Jellyfin**: quién está viendo qué, tamaño de la biblioteca y carátulas de lo último añadido.
-- **Speedtest Tracker**: velocidad actual e historial (API antigua y nueva).
+- **Conexiones compartidas**: escribes la URL y la clave de cada servicio una sola vez, con botón **Probar conexión**.
+- **Jellyfin**: quién está viendo qué, biblioteca y carátulas; incluso todo en un solo panel.
+- **Jellyseerr**, **qBittorrent** y **Transmission**: solicitudes y descargas.
+- **Glances**: CPU, memoria, discos y temperaturas de tu servidor (pensado para Unraid).
+- **Docker** (solo lectura, vía proxy), **Pi-hole**, **AdGuard Home** y **Uptime Kuma**.
+- **Scrutiny** (salud SMART de los discos), **UPS** (PeaNUT), **Immich**, **Jellystat**, **Tailscale** y **Gluetun** (VPN).
+- **Sonarr**, **Radarr**, **Lidarr**, **Prowlarr** y **Bazarr**: colas, estrenos y lo que falta.
+- **Home Assistant**, **Nextcloud**, **Paperless-ngx** y **Nginx Proxy Manager** (hosts y caducidad de certificados).
+- **What's Up Docker** y **Watchtower** (actualizaciones), **Gatus**, **Healthchecks**, **Netdata** y **Beszel**.
+- **Copias de seguridad:** **Duplicati**, **Kopia** y **Backrest**: cuándo fue la última y si falló.
+- **Syncthing**, **Audiobookshelf**, **Navidrome**, **Kavita**, **Komga**, **Mealie**, **Karakeep** y **Linkwarden**.
+- **SABnzbd**, **NZBGet** y **Deluge** (descargas), **Traefik**, **Caddy** y **Cloudflare Tunnel**, y **Gotify** y **ntfy** (notificaciones).
+- **Titulares RSS** con enlace a cada artículo y **API personalizada**: conecta cualquier API JSON sin programar.
+- **Speedtest Tracker**: velocidad actual e historial en gráfica (API antigua y nueva).
 - **Estado de servicios**: semáforo con latencia para cualquier URL (Dockge, Portainer, tu NAS…).
 - **Clima** (Open-Meteo, sin API key).
 - ¿Falta algo? [Crear un plugin](docs/plugins.md) es una carpeta con un archivo, sin compilar.
@@ -81,14 +94,19 @@ Abre `http://IP-DEL-SERVIDOR:3000`, crea la cuenta de administrador (te pedirá 
 
 <table>
   <tr>
+    <td width="50%"><img src="docs/img/server.jpg" alt="Página de servidor con Glances, Docker, qBittorrent, Pi-hole y gráfica de velocidad"><br><sub><b>Servidor</b>: discos, Docker, descargas, DNS y gráfica de velocidad</sub></td>
     <td width="50%"><img src="docs/img/appearance.jpg" alt="Panel de apariencia"><br><sub><b>Apariencia</b> con vista en vivo</sub></td>
-    <td width="50%"><img src="docs/img/dashboard-light.jpg" alt="Estilo sólido en modo claro"><br><sub><b>Sólido</b> en modo claro</sub></td>
   </tr>
   <tr>
+    <td width="50%"><img src="docs/img/dashboard-light.jpg" alt="Estilo sólido en modo claro"><br><sub><b>Sólido</b> en modo claro</sub></td>
     <td width="50%"><img src="docs/img/dashboard-terminal.jpg" alt="Estilo Terminal"><br><sub><b>Terminal</b>: monoespaciado y esquinas rectas</sub></td>
+  </tr>
+  <tr>
     <td width="50%"><img src="docs/img/users.jpg" alt="Gestión de usuarios"><br><sub><b>Usuarios</b>, roles y sesiones</sub></td>
+    <td width="50%"></td>
   </tr>
 </table>
+
 
 > Las capturas usan servidores de demostración simulados.
 
@@ -98,7 +116,7 @@ Abre `http://IP-DEL-SERVIDOR:3000`, crea la cuenta de administrador (te pedirá 
 |---|---|
 | [Instalación](docs/installation.md) | Docker, HTTPS, actualizaciones, copias de seguridad, problemas frecuentes |
 | [Configuración](docs/configuration.md) | Variables de entorno, widgets, apariencia, usuarios |
-| [Integraciones](docs/integrations.md) | Conectar Jellyfin, Speedtest Tracker, Dockge y más |
+| [Integraciones](docs/integrations.md) | Conectar Jellyfin, Sonarr/Radarr, Glances, Docker, UPS, copias de seguridad y más de 50 servicios |
 | [Plugins](docs/plugins.md) | Crear tus propios widgets |
 | [Seguridad](docs/security.md) | Cómo se protege y qué no cubre |
 | [Desarrollo](docs/development.md) | Arquitectura, compilar y probar |

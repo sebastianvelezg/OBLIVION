@@ -57,7 +57,16 @@ Cómo hacer copia de seguridad: [Instalación → Copia de seguridad](installati
 | **Calculadora** | Calculadora con teclado. |
 | **Página web** | Muestra otra página dentro del dashboard (si el sitio permite ser embebido). |
 
-Los widgets de servicios (Jellyfin, Speedtest Tracker, estado de servicios, clima) están en [Integraciones](integrations.md).
+Los widgets de servicios (Jellyfin, Jellyseerr, qBittorrent, Transmission, Speedtest Tracker, Glances, Docker, Pi-hole, AdGuard Home, Uptime Kuma, estado de servicios, clima) están en [Integraciones](integrations.md).
+
+### Aspecto de cada widget
+
+En el formulario de cualquier widget, el apartado **Aspecto de este widget** permite retocarlo sin cambiar el estilo global:
+
+- **Título en la tarjeta:** *Automático* (solo si escribes uno), *Mostrar siempre* (con el nombre del widget si no hay título) u *Ocultar*.
+- **Color de acento propio:** p. ej. un **rojo** para que un widget de alertas destaque; también cambia el borde y el resplandor en los estilos Neón y Brutalista.
+- **Opacidad propia** del fondo de la tarjeta.
+- **Enlace del título:** a dónde lleva al pulsarlo (por defecto, la URL de su conexión).
 
 ## Apariencia
 
@@ -65,11 +74,13 @@ El botón **🎨** abre un panel lateral que **no tapa el dashboard**: ves los c
 
 | Sección | Opciones |
 |---|---|
-| **Estilo** | *Cristal*, *Sólido*, *Minimalista*, *Contorno*, *Terminal*. Cambian la forma (tarjetas, densidad, fondo, letra) sin tocar tu paleta ni tu acento. |
+| **Estilo** | *Cristal*, *Sólido*, *Minimalista*, *Contorno*, *Neón* (borde y resplandor del acento), *Brutalista* (bordes gruesos y sombra dura), *Editorial* (serifa, amplio), *Burbuja* (muy redondeado), *Profundo* (cristal casi opaco con degradado) y *Terminal*. Cambian la forma (tarjetas, densidad, fondo, letra) sin tocar tu paleta ni tu acento. |
 | **Color** | Modo oscuro / claro / sistema · 6 paletas (*Medianoche, Grafito, Océano, Bosque, Ciruela, Brasa*) · 8 acentos o uno libre. |
-| **Tarjetas** | Estilo (cristal, sólido, contorno, plano), opacidad, desenfoque, redondeo y sombra. |
+| **Tarjetas** | Estilo (cristal, sólido, contorno, plano, neón, brutal), opacidad, desenfoque, redondeo y sombra. |
 | **Fondo** | *Aurora*, *Liso*, *Degradado* (dos colores y ángulo) o *Foto* (con desenfoque y oscurecimiento). |
 | **Disposición y letra** | Densidad (compacta, cómoda, amplia) y tipografía (moderna, terminal, editorial). |
+
+**Fondo distinto por página:** en modo **Editar**, el lápiz de la página (o doble clic en su nombre) abre **Fondo propio**: actívalo y elige aurora, liso, degradado o una foto solo para esa página. Al desactivarlo vuelve al fondo general.
 
 **Foto de fondo:** pulsa *Subir foto* y elige una imagen. Se **reduce y se limpia en tu navegador** antes de subirse (se eliminan los metadatos EXIF, como la ubicación GPS). Acepta JPG, PNG, WebP y AVIF (máx. 8 MB tras el procesado). Solo la ven los usuarios con sesión iniciada. **Restablecer** devuelve todo al aspecto por defecto.
 

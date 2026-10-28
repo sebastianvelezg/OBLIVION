@@ -1,12 +1,10 @@
-import { useMutation } from "@tanstack/react-query";
-import { ImagePlus, RotateCcw, Trash2, X } from "lucide-react";
-import { useRef, type ReactNode } from "react";
+import { RotateCcw, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { DEFAULT_APPEARANCE, PALETTE_IDS, type Appearance, type CardStyle } from "@oblivion/sdk";
-import { api } from "../api";
 import { useAppearance } from "../appearance";
-import { prepareBackground } from "../lib/image";
 import { ACCENTS, DENSITIES, FONTS, PALETTES, PRESETS, resolvedMode, type Preset } from "../theme";
-import { Segmented, toast } from "./ui";
+import { BackgroundEditor } from "./BackgroundEditor";
+import { Segmented, Slider } from "./ui";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -17,47 +15,30 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  unit = "",
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  unit?: string;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 flex justify-between text-xs text-muted">
-        <span>{label}</span>
-        <span className="tabular-nums">
-          {value}
-          {unit}
-        </span>
-      </span>
-      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-    </label>
-  );
-}
-
 /** Miniatura de un estilo, dibujada con los mismos tokens que usará el dashboard. */
 function PresetPreview({ preset, base }: { preset: Preset; base: Appearance }) {
   const a = preset.apply(base);
   const { style, opacity, radius } = a.card;
   const r = Math.max(2, Math.round(radius / 3));
-  const bgPct = style === "solid" ? 100 : style === "outline" ? 12 : opacity;
+  const bgPct = style === "solid" || style === "brutal" ? 100 : style === "outline" ? 12 : opacity;
   const tile = {
     background: `color-mix(in oklab, var(--surface-solid) ${bgPct}%, transparent)`,
-    border: `1px solid color-mix(in oklab, var(--fg) ${style === "outline" ? 40 : style === "flat" ? 0 : 20}%, transparent)`,
+    border:
+      style === "brutal"
+        ? "2px solid var(--fg)"
+        : style === "neon"
+          ? "1px solid color-mix(in oklab, var(--accent) 75%, transparent)"
+          : `1px solid color-mix(in oklab, var(--fg) ${style === "outline" ? 40 : style === "flat" ? 0 : 20}%, transparent)`,
     borderRadius: r,
     backdropFilter: a.card.blur ? "blur(3px)" : undefined,
-    boxShadow: a.card.shadow === "none" ? "none" : "0 4px 8px -4px rgba(0,0,0,.5)",
+    boxShadow:
+      style === "brutal"
+        ? "3px 3px 0 var(--accent)"
+        : style === "neon"
+          ? "0 0 10px -2px color-mix(in oklab, var(--accent) 60%, transparent)"
+          : a.card.shadow === "none"
+            ? "none"
+            : "0 4px 8px -4px rgba(0,0,0,.5)",
   } as const;
   const plain = a.background.type === "plain";
   return (
@@ -84,24 +65,12 @@ function PresetPreview({ preset, base }: { preset: Preset; base: Appearance }) {
 
 export function AppearancePanel({ onClose }: { onClose: () => void }) {
   const { appearance: a, update } = useAppearance();
-  const fileRef = useRef<HTMLInputElement>(null);
   const mode = resolvedMode(a);
 
   const patch = (p: Partial<Appearance>) => update({ ...a, ...p });
   const patchCard = (p: Partial<Appearance["card"]>) => update({ ...a, card: { ...a.card, ...p } });
-  const patchBg = (p: Partial<Appearance["background"]>) => update({ ...a, background: { ...a.background, ...p } });
-
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const blob = await prepareBackground(file);
-      return api.upload<{ imageId: string }>("/appearance/background", blob);
-    },
-    onSuccess: ({ imageId }) => patchBg({ imageId, type: "image" }),
-    onError: (e) => toast(e.message),
-  });
-
-  const styleHasOpacity = a.card.style !== "solid";
-  const styleHasBlur = a.card.style === "glass" || a.card.style === "outline";
+  const styleHasOpacity = a.card.style !== "solid" && a.card.style !== "brutal";
+  const styleHasBlur = ["glass", "outline", "neon"].includes(a.card.style);
 
   return (
     <aside className="drawer" aria-label="Apariencia">
@@ -209,6 +178,8 @@ export function AppearancePanel({ onClose }: { onClose: () => void }) {
                 { value: "solid", label: "Sólido" },
                 { value: "outline", label: "Contorno" },
                 { value: "flat", label: "Plano" },
+                { value: "neon", label: "Neón" },
+                { value: "brutal", label: "Brutal" },
               ]}
             />
           </div>
@@ -234,77 +205,10 @@ export function AppearancePanel({ onClose }: { onClose: () => void }) {
         </Section>
 
         <Section title="Fondo">
-          <Segmented
-            value={a.background.type}
-            onChange={(type) => {
-              if (type === "image" && !a.background.imageId) fileRef.current?.click();
-              else patchBg({ type });
-            }}
-            options={[
-              { value: "aurora", label: "Aurora" },
-              { value: "plain", label: "Liso" },
-              { value: "gradient", label: "Degradado" },
-              { value: "image", label: "Foto" },
-            ]}
-          />
-
-          {a.background.type === "gradient" && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-xs text-muted">
-                  Desde
-                  <input type="color" value={a.background.from} onChange={(e) => patchBg({ from: e.target.value })} className="h-8 w-10 cursor-pointer rounded-md border border-line bg-transparent" />
-                </label>
-                <label className="flex items-center gap-2 text-xs text-muted">
-                  Hasta
-                  <input type="color" value={a.background.to} onChange={(e) => patchBg({ to: e.target.value })} className="h-8 w-10 cursor-pointer rounded-md border border-line bg-transparent" />
-                </label>
-              </div>
-              <Slider label="Ángulo" value={a.background.angle} min={0} max={360} unit="°" onChange={(angle) => patchBg({ angle })} />
-            </div>
-          )}
-
-          {a.background.type === "image" && a.background.imageId && (
-            <div className="space-y-3">
-              <div
-                className="h-24 rounded-xl border border-line bg-cover bg-center"
-                style={{ backgroundImage: `url(/api/appearance/background/${a.background.imageId})` }}
-                role="img"
-                aria-label="Vista previa del fondo"
-              />
-              <Slider label="Desenfoque de la foto" value={a.background.blur} min={0} max={30} unit="px" onChange={(blur) => patchBg({ blur })} />
-              <Slider label="Oscurecer" value={a.background.dim} min={0} max={80} unit="%" onChange={(dim) => patchBg({ dim })} />
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button className="btn flex-1" onClick={() => fileRef.current?.click()} disabled={upload.isPending}>
-              <ImagePlus size={16} /> {upload.isPending ? "Procesando…" : a.background.imageId ? "Cambiar foto" : "Subir foto"}
-            </button>
-            {a.background.imageId && (
-              <button
-                className="btn btn-danger"
-                aria-label="Quitar foto"
-                onClick={() => patchBg({ imageId: null, type: a.background.type === "image" ? "aurora" : a.background.type })}
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
+          <BackgroundEditor value={a.background} onChange={(background) => update({ ...a, background })} />
           <p className="text-[11px] leading-snug text-muted">
-            La foto se reduce y se limpia en tu navegador (se eliminan los datos EXIF, como la ubicación) antes de subirse. Solo la ven quienes inician sesión.
+            Cada página puede tener su propio fondo: edítalo desde el lápiz de la página (modo Editar).
           </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload.mutate(f);
-              e.target.value = "";
-            }}
-          />
         </Section>
 
         <Section title="Disposición y letra">

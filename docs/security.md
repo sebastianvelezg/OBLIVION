@@ -46,7 +46,7 @@ Las API keys de los widgets se cifran con **AES-256-GCM** antes de guardarse. La
 
 ## Red de los plugins (anti-SSRF)
 
-`ctx.http` solo permite los hosts declarados por el plugin y las URLs que configuró el administrador. Además resuelve el DNS y rechaza direcciones de *link-local* y metadatos cloud (p. ej. `169.254.169.254`), revalida cada redirección y limita tiempo (8 s) y tamaño de respuesta (2 MB). Las IP de la red local **sí** se permiten: es el caso de uso de un homelab.
+`ctx.http` solo permite los hosts declarados por el plugin y las URLs que configuró el administrador (en la conexión o en el widget). Además resuelve el DNS y rechaza direcciones de *link-local* y metadatos cloud (p. ej. `169.254.169.254`), revalida cada redirección y limita tiempo (8 s) y tamaño de respuesta (2 MB). Las IP de la red local **sí** se permiten: es el caso de uso de un homelab.
 
 ## Apariencia y foto de fondo
 
@@ -55,6 +55,18 @@ Las API keys de los widgets se cifran con **AES-256-GCM** antes de guardarse. La
 - El navegador reduce y recodifica la foto antes de subirla, lo que elimina los metadatos EXIF (ubicación GPS, cámara, fecha).
 - **Servirla:** solo con sesión iniciada (no es pública), con el identificador validado por un patrón estricto (no se puede salir de la carpeta de subidas), `Cache-Control: private` y `nosniff`.
 - Las fotos que dejan de usarse se borran del disco (con 10 minutos de margen para no perder una recién subida).
+
+**Conexiones:** solo el administrador puede verlas o modificarlas. Sus claves se cifran como las de cualquier campo `secret` y nunca se devuelven al navegador (solo se indica que hay una guardada). Una conexión solo se puede asignar a widgets de su propio plugin.
+
+**Docker:** el plugin de Docker solo hace `GET /containers/json` y está pensado para un proxy de solo lectura (`docker-socket-proxy` con `CONTAINERS=1`). **No montes el socket de Docker en Oblivion** ni expongas el puerto 2375 del demonio: quien lo alcance controla el servidor. Detalle en [Integraciones](integrations.md#contenedores-de-docker-solo-lectura).
+
+**Sesiones de servicios:** los plugins que inician sesión (qBittorrent, Pi-hole 6, Nginx Proxy Manager, Beszel, Kavita, Duplicati, Deluge) guardan el identificador de sesión solo en memoria, ligado a la URL, el usuario y una huella de la contraseña; si cambias la contraseña de la conexión se inicia sesión de nuevo. Esas cachés tienen un **tope de entradas** (las caducadas se retiran primero).
+
+**Enlace del título de un widget:** por defecto abre la URL de su conexión. Como lo ven también los usuarios de **solo lectura**, se le quitan la *query* y el fragmento (`?apikey=…`, `#token`) y solo se publica el origen y la ruta. Si un servicio necesita una clave en la dirección, **ponla en el campo de clave de la conexión** (se cifra), no en la URL. Los enlaces que escriba el administrador, o que lleven las filas de una lista (p. ej. un feed RSS), solo pueden ser `http(s)`: el servidor los valida y el navegador vuelve a comprobarlo antes de pintarlos.
+
+**«Probar conexión»:** solo el administrador, y llama a las mismas direcciones que ya podría configurar en un widget, con la misma red restringida (sin metadatos cloud ni *link-local*, tiempo y tamaño acotados). Los mensajes de error que ve son los que el plugin marca como mostrables.
+
+**Fondo por página:** las imágenes se validan con el mismo patrón y la misma firma real que la foto de fondo general; las que no usa ninguna página ni la apariencia se borran del disco.
 
 **Imágenes de plugins (carátulas):** el navegador solo conoce claves opacas; el servidor las resuelve con el plugin. Cada imagen se valida por su firma real antes de reenviarse (un servicio que devuelva HTML con `Content-Type: image/png` recibe 404), con tope de 3 MB, caché en memoria acotada (24 MB), y la ruta exige sesión.
 

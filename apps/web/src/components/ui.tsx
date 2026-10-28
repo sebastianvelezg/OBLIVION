@@ -95,6 +95,35 @@ export function Field({ label, help, children }: { label: string; help?: string;
   );
 }
 
+export function Slider({
+  label,
+  value,
+  min,
+  max,
+  unit = "",
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  unit?: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex justify-between text-xs text-muted">
+        <span>{label}</span>
+        <span className="tabular-nums">
+          {value}
+          {unit}
+        </span>
+      </span>
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </label>
+  );
+}
+
 export function Segmented<T extends string>({
   value,
   options,
@@ -105,7 +134,7 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-line bg-surface-2 p-1" role="radiogroup">
+    <div className="inline-flex max-w-full flex-wrap rounded-xl border border-line bg-surface-2 p-1" role="radiogroup">
       {options.map((o) => (
         <button
           key={o.value}

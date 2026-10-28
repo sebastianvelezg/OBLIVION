@@ -13,10 +13,18 @@ async function setup(config: Record<string, unknown> = {}) {
   const ctx = await makeApp({}, { realPlugins: true });
   const c = await loggedInAdmin(ctx.app);
   const page = (await c.get("/api/pages")).json.pages[0];
-  const add = async (type: string, cfg: Record<string, unknown> = {}) => {
+  /** `cfg` son las opciones del widget; `conn` pisa campos de la conexión (url, apiKey). */
+  const add = async (type: string, cfg: Record<string, unknown> = {}, conn: Record<string, unknown> = {}) => {
+    const made = await c.post("/api/connections", {
+      pluginId: "jellyfin",
+      name: "Casa",
+      config: { url: mock.url, apiKey: MOCK_API_KEY, ...config, ...conn },
+    });
+    assert.equal(made.status, 201, JSON.stringify(made.json));
     const r = await c.post(`/api/pages/${page.id}/widgets`, {
       type,
-      config: { url: mock.url, apiKey: MOCK_API_KEY, ...config, ...cfg },
+      config: cfg,
+      connectionId: made.json.connection.id,
     });
     assert.equal(r.status, 201, JSON.stringify(r.json));
     return r.json.widget as { id: string };
@@ -25,10 +33,52 @@ async function setup(config: Record<string, unknown> = {}) {
 }
 
 describe("plugin Jellyfin", () => {
-  it("se carga con sus tres widgets", async () => {
+  it("se carga con sus cuatro widgets y una sola conexión compartida", async () => {
     const { c } = await setup();
-    const types = (await c.get("/api/catalog")).json.widgets.map((w: any) => w.fullType);
-    for (const t of ["jellyfin.now-playing", "jellyfin.library", "jellyfin.latest"]) assert.ok(types.includes(t), t);
+    const widgets = (await c.get("/api/catalog")).json.widgets;
+    const types = widgets.map((w: any) => w.fullType);
+    for (const t of ["jellyfin.now-playing", "jellyfin.library", "jellyfin.latest", "jellyfin.overview"]) {
+      assert.ok(types.includes(t), t);
+    }
+    for (const w of widgets.filter((w: any) => w.pluginId === "jellyfin")) {
+      assert.deepEqual(w.connection.map((f: any) => f.key), ["url", "apiKey"]);
+      assert.equal(w.config.some((f: any) => f.key === "url" || f.key === "apiKey"), false, "la URL y la key ya no se piden por widget");
+    }
+  });
+
+  it("«Panel de Jellyfin» junta las secciones elegidas en un solo widget", async () => {
+    const { c, add } = await setup();
+    const all = await add("jellyfin.overview", { showNowPlaying: true, showLibrary: true, showLatest: true, limit: 4 });
+    const d = (await c.get(`/api/widgets/${all.id}/data`)).json;
+    assert.equal(d.ok, true, JSON.stringify(d));
+    assert.equal(d.view.kind, "sections");
+    assert.deepEqual(d.view.sections.map((s: any) => [s.title, s.view.kind]), [
+      ["Reproduciendo ahora", "list"],
+      ["Biblioteca", "stats"],
+      ["Últimos añadidos", "media"],
+    ]);
+    assert.ok(d.view.sections[2].view.items.length <= 4);
+
+    // Solo dos secciones.
+    const two = await add("jellyfin.overview", { showNowPlaying: false, showLibrary: true, showLatest: true });
+    const d2 = (await c.get(`/api/widgets/${two.id}/data`)).json;
+    assert.deepEqual(d2.view.sections.map((s: any) => s.title), ["Biblioteca", "Últimos añadidos"]);
+
+    // Ninguna: pide activar alguna.
+    const none = await add("jellyfin.overview", { showNowPlaying: false, showLibrary: false, showLatest: false });
+    assert.match((await c.get(`/api/widgets/${none.id}/data`)).json.view.text, /al menos una sección/);
+
+    // Las carátulas de la sección «Últimos añadidos» pasan por el proxy de imágenes del propio panel.
+    const img = await c.get(`/api/widgets/${all.id}/image/${IDS.dune}`);
+    assert.equal(img.status, 200);
+  });
+
+  it("si la conexión falla, el panel muestra el error de la conexión", async () => {
+    const { c, add } = await setup();
+    const w = await add("jellyfin.overview", {}, { apiKey: "otra-key-equivocada-123" });
+    const d = (await c.get(`/api/widgets/${w.id}/data`)).json;
+    assert.equal(d.ok, false);
+    assert.match(d.error, /rechazó la API key/);
   });
 
   it("«Reproduciendo ahora» lista solo a quien reproduce, con progreso y tipo", async () => {
@@ -131,25 +181,25 @@ describe("plugin Jellyfin", () => {
   it("explica los fallos de forma útil (key mala, servidor caído, subruta)", async () => {
     const { c, add } = await setup();
 
-    const bad = await add("jellyfin.library", { apiKey: "otra-key-equivocada-123" });
+    const bad = await add("jellyfin.library", {}, { apiKey: "otra-key-equivocada-123" });
     const r1 = (await c.get(`/api/widgets/${bad.id}/data`)).json;
     assert.equal(r1.ok, false);
     assert.match(r1.error, /rechazó la API key/);
 
-    const weird = await add("jellyfin.library", { apiKey: "has spaces and \"quotes\"" });
+    const weird = await add("jellyfin.library", {}, { apiKey: "has spaces and \"quotes\"" });
     assert.match((await c.get(`/api/widgets/${weird.id}/data`)).json.error, /formato válido/);
 
-    const down = await add("jellyfin.library", { url: "http://127.0.0.1:1" });
+    const down = await add("jellyfin.library", {}, { url: "http://127.0.0.1:1" });
     assert.match((await c.get(`/api/widgets/${down.id}/data`)).json.error, /No se pudo conectar con 127\.0\.0\.1:1/);
 
-    const sub = await add("jellyfin.library", { url: mock.url + "/nope" });
+    const sub = await add("jellyfin.library", {}, { url: mock.url + "/nope" });
     assert.match((await c.get(`/api/widgets/${sub.id}/data`)).json.error, /no encontró esa ruta|rechazó/);
   });
 
   it("una redirección hacia metadatos cloud se bloquea", async () => {
     const { c, add } = await setup();
     // Usamos la ruta /redirect del simulado como «URL base»: toda llamada redirige a 169.254.169.254.
-    const w = await add("jellyfin.library", { url: mock.url + "/redirect?x=" });
+    const w = await add("jellyfin.library", {}, { url: mock.url + "/redirect?x=" });
     const d = (await c.get(`/api/widgets/${w.id}/data`)).json;
     assert.equal(d.ok, false);
     assert.match(d.error, /permiso|bloqueada|Dirección/);
