@@ -1,0 +1,8 @@
+# Construye la imagen desde el código fuente en lugar de descargarla.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+
+services:
+  oblivion:
+    build: .
+    image: oblivion:local

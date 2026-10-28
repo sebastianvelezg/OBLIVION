@@ -1,0 +1,46 @@
+# Oblivion — instalación con la imagen publicada en GitHub Container Registry.
+#
+#   1. Copia .env.example a .env y define OBLIVION_SETUP_TOKEN.
+#   2. docker compose up -d
+#   3. Abre http://IP-DEL-SERVIDOR:3000 y crea la cuenta de administrador.
+#
+# Para construir la imagen desde el código fuente usa docker-compose.build.yml.
+
+name: oblivion
+
+services:
+  oblivion:
+    image: ghcr.io/sebastianvelezg/oblivion:latest
+    container_name: oblivion
+    restart: unless-stopped
+    ports:
+      # El puerto se cambia con OBLIVION_PORT en .env (por defecto 3000).
+      # Detrás de un reverse proxy en la misma máquina, publícalo solo en local:
+      #   - "127.0.0.1:${OBLIVION_PORT:-3000}:3000"
+      - "${OBLIVION_PORT:-3000}:3000"
+    environment:
+      # Recomendado: exige este código para crear la cuenta de administrador.
+      OBLIVION_SETUP_TOKEN: "${OBLIVION_SETUP_TOKEN:-}"
+      # Actívalo SOLO si hay un reverse proxy delante (usa X-Forwarded-*).
+      OBLIVION_TRUST_PROXY: "${OBLIVION_TRUST_PROXY:-false}"
+      # Opcional: solo responde si el Host coincide (p. ej. tu dominio).
+      OBLIVION_ALLOWED_HOSTS: "${OBLIVION_ALLOWED_HOSTS:-}"
+      OBLIVION_COOKIE_SECURE: "${OBLIVION_COOKIE_SECURE:-auto}"
+      # Opcional: clave maestra propia (si no, se genera en el volumen de datos).
+      OBLIVION_SECRET_KEY: "${OBLIVION_SECRET_KEY:-}"
+      # Plugins propios (opcional): descomenta esta línea y el volumen de abajo.
+      # Se suman a los incluidos (/app/plugins).
+      # OBLIVION_PLUGINS_DIR: /app/plugins:/plugins
+    volumes:
+      - oblivion-data:/data
+      # - ./mis-plugins:/plugins:ro   # una carpeta por plugin, cada una con su plugin.mjs
+    # Endurecimiento del contenedor
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  oblivion-data:
