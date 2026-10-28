@@ -3,7 +3,7 @@
 # ───────── build ─────────
 # La compilación es JavaScript puro: se hace siempre en la plataforma del constructor
 # (rápido, sin emulación) aunque la imagen final sea para amd64 o arm64.
-FROM --platform=$BUILDPLATFORM node:24-alpine AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/server/package.json apps/server/
@@ -15,7 +15,7 @@ RUN npm run build
 
 # ───────── runtime ─────────
 # El servidor se empaqueta en un solo archivo: no hace falta node_modules.
-FROM node:24-alpine
+FROM node:26-alpine
 LABEL org.opencontainers.image.title="Oblivion" \
       org.opencontainers.image.description="Dashboard autoalojado, seguro y personalizable para tu homelab" \
       org.opencontainers.image.source="https://github.com/sebastianvelezg/OBLIVION" \
