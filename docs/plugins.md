@@ -4,6 +4,7 @@ Un plugin es una carpeta con un archivo **`plugin.mjs`**. No hay paso de compila
 
 - [Instalar plugins propios](#instalar-plugins-propios)
 - [Anatomía de un plugin](#anatomía-de-un-plugin)
+- [Conexión compartida](#conexión-compartida)
 - [Tipos de campo](#tipos-de-campo)
 - [Qué puede hacer `load(ctx)`](#qué-puede-hacer-loadctx)
 - [Qué devuelve: vistas declarativas](#qué-devuelve-vistas-declarativas)
@@ -77,6 +78,55 @@ export default {
 
 Los tipos están en [`packages/sdk/src/index.ts`](../packages/sdk/src/index.ts) (`@oblivion/sdk`); el comentario JSDoc de arriba te da autocompletado en tu editor.
 
+## Conexión compartida
+
+Si varios widgets de tu plugin hablan con el mismo servicio, no repitas la URL y la API key en cada uno: declara una **conexión** a nivel de plugin. El usuario la escribe una vez (en **Ajustes → Conexiones** o al añadir el primer widget) y cada widget solo elige cuál usar.
+
+```js
+export default {
+  id: "mi-plugin",
+  // ...
+  connection: [                       // campos que se piden una sola vez
+    { key: "url", label: "URL del servicio", type: "url", required: true },
+    { key: "apiKey", label: "API key", type: "secret", required: true },
+  ],
+  widgets: [
+    {
+      type: "estado",
+      // ...
+      config: [],                     // aquí solo las opciones propias de este widget
+      async load(ctx) {
+        // ctx.config trae los campos de la conexión Y los del widget
+        const res = await ctx.http(ctx.config.url + "/status", { headers: { "X-Api-Key": ctx.config.apiKey } });
+        // ...
+      },
+    },
+  ],
+};
+```
+
+Las claves de `connection` no pueden repetirse en el `config` de ningún widget (el plugin se rechaza). La red sigue igual de restringida: `ctx.http` llega a los campos `url` de la conexión. Si tu plugin no declara `connection`, todo funciona como antes y cada widget guarda su configuración.
+
+### Código compartido entre plugins
+
+Un plugin puede importar módulos de otra carpeta con una ruta relativa. Los plugins de la familia *arr lo hacen con [`plugins/_shared/arr.mjs`](../plugins/_shared/arr.mjs) (`import { arrGet } from "../_shared/arr.mjs"`). Esa carpeta no tiene `plugin.mjs`, así que Oblivion no la carga como plugin.
+
+### Probar la conexión
+
+Si declaras `test(ctx)` a nivel de plugin, el formulario de la conexión muestra el botón **Probar conexión**. Recibe la conexión en `ctx.config` y devuelve un texto de éxito, o llama a `ctx.fail("motivo")`:
+
+```js
+async test(ctx) {
+  const res = await ctx.http(ctx.config.url + "/status");
+  if (!res.ok) ctx.fail("El servicio respondió con error " + res.status);
+  return "Conectado";
+},
+```
+
+### Enlace del título
+
+Si el plugin tiene un campo `url` en su conexión, el título del widget abre esa dirección. Pon `openLink: false` en un widget cuando esa URL sea una API sin interfaz web (como el proxy de Docker).
+
 ## Tipos de campo
 
 | `type` | Qué es |
@@ -93,9 +143,9 @@ Cada campo admite `label`, `required`, `default`, `placeholder` y `help`.
 
 ## Qué puede hacer `load(ctx)`
 
-- **`ctx.config`**: la configuración del widget. Los `secret` llegan descifrados.
+- **`ctx.config`**: la configuración del widget junto con la de su conexión (si el plugin la declara). Los `secret` llegan descifrados.
 - **`ctx.http(url, init?)`**: **la única forma de salir a la red.** Devuelve `{ ok, status, headers, text, bytes, json() }`. Con `init.redirect = "manual"` no sigue redirecciones (útil para comprobar si un servicio responde).
-  - Solo llega a los hosts de `permissions.network` y a las URLs que el usuario escribió en campos `url` del widget, incluidos los `url` dentro de campos `list`. Así un plugin de Jellyfin puede llamar a *el Jellyfin que tú configuraste* y a nada más.
+  - Solo llega a los hosts de `permissions.network` y a las URLs que el usuario escribió en campos `url` de la conexión o del widget, incluidos los `url` dentro de campos `list`. Así un plugin de Jellyfin puede llamar a *el Jellyfin que tú configuraste* y a nada más.
   - Tiene timeout (8 s), tope de respuesta (2 MB), revalida las redirecciones y bloquea siempre direcciones de metadatos cloud / link-local.
   - Si no se puede conectar, el usuario ve «No se pudo conectar con host:puerto» sin que hagas nada.
 - **`ctx.fail("mensaje")`**: termina con un error **cuyo mensaje sí se muestra** (p. ej. «Jellyfin rechazó la API key»). Cualquier otro error se oculta tras «No se pudo obtener la información» para no filtrar detalles internos; el detalle queda en el registro.
@@ -111,9 +161,11 @@ Los plugins **no** envían HTML ni JavaScript al navegador. Devuelven una *vista
 |---|---|
 | `metric` | Un valor grande + detalle (`rows`) + tira de pronóstico (`strip`) |
 | `stats` | Cuadrícula de cifras (`items: [{ label, value, hint?, tone? }]`) |
-| `list` | Filas con título, subtítulo, valor a la derecha y barra de progreso opcional |
+| `list` | Filas con título, subtítulo, valor a la derecha y barra de progreso opcional; cada fila puede llevar un `href` (solo `http(s)`) para que el título abra un enlace |
 | `media` | Cuadrícula de carátulas (`items: [{ title, subtitle?, image?, badge?, progress? }]`) |
 | `message` | Un texto (avisos, errores) |
+| `chart` | Gráfica de líneas: `{ unit?, labels?, series: [{ name, points: number[] }], caption? }` (de antiguo a reciente; hasta 4 series de 200 puntos) |
+| `sections` | Varias de las vistas anteriores apiladas, cada una con su título (`sections: [{ title?, view }]`, máx. 6, sin anidar). Sirve para un panel que combina varias cosas; si una sección falla, devuelve un `message` en su lugar. |
 
 `tone` puede ser `neutral`, `good`, `warn` o `bad`. Si la vista no cumple el esquema, el widget muestra un error y el detalle queda en el registro.
 
@@ -138,7 +190,7 @@ Un plugin **no** devuelve URLs de imágenes: devuelve una *clave opaca* (`[A-Za-
 
 ## Probar un plugin sin el servicio real
 
-En [`apps/server/tests/support/`](../apps/server/tests/support) hay servidores simulados (`mock-jellyfin.ts`, `mock-homelab.ts`) que levantan un HTTP local con la forma de la API, incluidas carátulas PNG generadas. Los tests de los plugins incluidos los usan de punta a punta ([`jellyfin.test.ts`](../apps/server/tests/jellyfin.test.ts), [`homelab.test.ts`](../apps/server/tests/homelab.test.ts)).
+En [`apps/server/tests/support/`](../apps/server/tests/support) hay servidores simulados (`mock-jellyfin.ts`, `mock-homelab.ts`, `mock-stack.ts` con Glances, qBittorrent, Docker, Pi-hole y más) que levantan un HTTP local con la forma de la API, incluidas carátulas PNG generadas. Los tests de los plugins incluidos los usan de punta a punta ([`jellyfin.test.ts`](../apps/server/tests/jellyfin.test.ts), [`homelab.test.ts`](../apps/server/tests/homelab.test.ts)).
 
 Para verlo a mano:
 

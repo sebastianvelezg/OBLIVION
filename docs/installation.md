@@ -1,10 +1,11 @@
 # Instalación
 
-Oblivion se distribuye como una imagen de Docker. Esta guía cubre la instalación en un servidor (un NAS, un RAID, un mini-PC, una Raspberry Pi…), cómo ponerlo detrás de HTTPS, actualizarlo y hacer copias de seguridad.
+Oblivion se distribuye como una imagen de Docker. Esta guía cubre la instalación en un servidor (Unraid, un NAS, un mini-PC, una Raspberry Pi…), cómo ponerlo detrás de HTTPS, actualizarlo y hacer copias de seguridad.
 
 - [Requisitos](#requisitos)
 - [Instalar con Docker Compose](#instalar-con-docker-compose)
 - [Primer arranque](#primer-arranque)
+- [Instalar en Unraid](#instalar-en-unraid)
 - [Acceso desde fuera de casa](#acceso-desde-fuera-de-casa)
 - [Actualizar](#actualizar)
 - [Copia de seguridad y restauración](#copia-de-seguridad-y-restauración)
@@ -62,6 +63,24 @@ Oblivion se distribuye como una imagen de Docker. Esta guía cubre la instalaci�
 > ⚠️ Si no defines `OBLIVION_SETUP_TOKEN` y el servidor es accesible desde otras redes, **cualquiera que llegue primero a la página crea el administrador**. En una red doméstica cerrada es aceptable; en cualquier otro caso, define el código.
 
 Para conectar tus servicios, ve a [Integraciones](integrations.md).
+
+## Instalar en Unraid
+
+Unraid trae Docker. Dos formas, elige la que ya uses:
+
+- **Con Dockge o *Compose Manager*:** crea un stack con el contenido de `docker-compose.yml` y, en su `.env`, define `OBLIVION_SETUP_TOKEN` y, si el `3000` está ocupado, `OBLIVION_PORT`. Pulsa *Deploy*.
+- **Guardar los datos en el array:** por defecto los datos van a un volumen de Docker (que vive en `docker.img`/el directorio de Docker). Si prefieres tenerlos en una carpeta visible y que entren en tus copias, sustituye el volumen por una ruta de *appdata* y dale permisos al usuario del contenedor (UID `1000`):
+
+  ```yaml
+      volumes:
+        - /mnt/user/appdata/oblivion:/data
+  ```
+
+  ```bash
+  mkdir -p /mnt/user/appdata/oblivion && chown 1000:1000 /mnt/user/appdata/oblivion
+  ```
+
+Después, entra en `http://IP-DE-TU-UNRAID:PUERTO`. Para ver el estado de tu Unraid (discos del array, caché, temperaturas) instala **Glances** desde la tienda y mira [Integraciones](integrations.md#estado-del-servidor-glances).
 
 ## Acceso desde fuera de casa
 
