@@ -1,0 +1,31 @@
+name: Proponer una mejora
+description: Una idea para Oblivion (un widget, una integración, una opción…)
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: ¿Qué necesitas o qué problema quieres resolver?
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: ¿Cómo te imaginas la solución?
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: ¿Qué tipo de cambio es?
+      options:
+        - Un widget o integración nueva (plugin)
+        - Personalización / apariencia
+        - Seguridad
+        - Usuarios y permisos
+        - Instalación / Docker
+        - Otro
+  - type: checkboxes
+    id: ayuda
+    attributes:
+      label: Ayuda
+      options:
+        - label: Me gustaría intentar implementarlo yo

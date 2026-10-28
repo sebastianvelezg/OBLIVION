@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Reportar una vulnerabilidad
+    url: https://github.com/sebastianvelezg/OBLIVION/security/advisories/new
+    about: Por favor, repórtala en privado.
+  - name: Documentación
+    url: https://github.com/sebastianvelezg/OBLIVION/tree/main/docs
+    about: Instalación, configuración, integraciones y solución de problemas.
