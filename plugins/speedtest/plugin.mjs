@@ -6,8 +6,10 @@
 //   · «Nueva»:   alexjustesen ≥ 1.2.1 (imagen de linuxserver). Requiere un token de API con
 //                el permiso «Read Results» (se crea en /admin/api-tokens).
 //
-// No declara `permissions.network`: solo llama a la URL que escribas en el widget.
+// No declara `permissions.network`: solo llama a la URL que escribas en la conexión, que
+// se crea una vez y comparten todos los widgets de Speedtest Tracker.
 
+/** Conexión compartida por todos los widgets de Speedtest Tracker. */
 const connection = [
   {
     key: "url",
@@ -38,9 +40,18 @@ const connection = [
 const plugin = {
   id: "speedtest",
   name: "Speedtest Tracker",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "Velocidad de descarga, subida y latencia de tu conexión, medida por Speedtest Tracker.",
   author: "Oblivion",
+  connection,
+
+  async test(ctx) {
+    const r = await fetchLatest(ctx);
+    if (!r) return "Conectado, pero todavía no hay ningún test";
+    const d = fmtSpeed(r.download);
+    return `Conectado: último test ${d.value} ${d.unit} (${ago(r.createdAt)})`;
+  },
+
   widgets: [
     {
       type: "latest",
@@ -50,7 +61,7 @@ const plugin = {
       defaultSize: { w: 4, h: 4 },
       minSize: { w: 3, h: 3 },
       refreshSeconds: 300,
-      config: connection,
+      config: [],
 
       async load(ctx) {
         const r = await fetchLatest(ctx);
@@ -87,7 +98,19 @@ const plugin = {
       defaultSize: { w: 5, h: 6 },
       minSize: { w: 3, h: 3 },
       refreshSeconds: 600,
-      config: [...connection, { key: "limit", label: "Cantidad", type: "number", default: 8, min: 3, max: 25 }],
+      config: [
+        {
+          key: "mode",
+          label: "Cómo mostrarlo",
+          type: "select",
+          default: "chart",
+          options: [
+            { value: "chart", label: "Gráfica de líneas" },
+            { value: "list", label: "Lista" },
+          ],
+        },
+        { key: "limit", label: "Cantidad", type: "number", default: 12, min: 3, max: 25 },
+      ],
 
       async load(ctx) {
         if (ctx.config.version !== "2") {
@@ -98,6 +121,25 @@ const plugin = {
         const rows = (Array.isArray(body.data) ? body.data : Array.isArray(body) ? body : [])
           .slice(0, limit)
           .map(normalizeV2);
+
+        // Los widgets creados antes de que existiera la gráfica (sin `mode`) pasan a verla.
+        if (ctx.config.mode !== "list") {
+          const ok = rows.filter((r) => !(r.status && r.status !== "completed")).reverse(); // de antiguo a reciente
+          if (ok.length < 2) return { kind: "message", text: "Hacen falta al menos dos tests para dibujar la gráfica." };
+          const pings = ok.map((r) => r.ping).filter(Number.isFinite);
+          const avgPing = pings.length ? Math.round(pings.reduce((a, b) => a + b, 0) / pings.length) : undefined;
+          const short = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+          return {
+            kind: "chart",
+            unit: "Mbps",
+            labels: ok.map((r) => (Number.isFinite(Date.parse(r.createdAt)) ? short.format(new Date(r.createdAt)) : "")),
+            series: [
+              { name: "Descarga", points: ok.map((r) => round1(r.download)) },
+              { name: "Subida", points: ok.map((r) => round1(r.upload)) },
+            ],
+            caption: [`${ok.length} tests`, avgPing !== undefined ? `ping medio ${avgPing} ms` : ""].filter(Boolean).join(" · "),
+          };
+        }
 
         const maxDown = Math.max(1, ...rows.map((r) => r.download || 0));
         return {
@@ -188,6 +230,7 @@ function normalizeV2(r) {
 }
 
 const round = (n) => (Number.isFinite(n) ? Math.round(n) : "—");
+const round1 = (n) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : 0);
 
 function fmtSpeed(mbps) {
   if (!Number.isFinite(mbps)) return { value: "—", unit: "Mbps" };

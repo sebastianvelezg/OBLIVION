@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { CatalogWidget, PluginDefinition, WidgetDefinition } from "@oblivion/sdk";
+import type { CatalogWidget, Field, PluginDefinition, WidgetDefinition } from "@oblivion/sdk";
 import { corePlugin } from "./core.js";
 import { pluginDefSchema } from "./schema.js";
 
@@ -9,6 +9,10 @@ export interface RegisteredWidget {
   plugin: PluginDefinition;
   def: WidgetDefinition;
   fullType: string;
+  /** Campos de la conexión del plugin (vacío si no usa conexiones). */
+  connection: Field[];
+  /** Todos los campos que recibe el widget: conexión + los suyos. */
+  fields: Field[];
 }
 
 export class PluginRegistry {
@@ -27,12 +31,17 @@ export class PluginRegistry {
       if (!w.component && !w.load) {
         throw new Error(`«${plugin.id}.${w.type}» necesita «load» o «component»`);
       }
+      const clash = w.config.find((f) => plugin.connection?.some((c) => c.key === f.key));
+      if (clash) {
+        throw new Error(`«${plugin.id}.${w.type}»: el campo «${clash.key}» ya existe en la conexión del plugin`);
+      }
     }
     this.plugins.set(plugin.id, plugin);
     for (const def of plugin.widgets) {
       const fullType = `${plugin.id}.${def.type}`;
       if (this.widgets.has(fullType)) throw new Error(`Widget duplicado: ${fullType}`);
-      this.widgets.set(fullType, { plugin, def, fullType });
+      const connection = plugin.connection ?? [];
+      this.widgets.set(fullType, { plugin, def, fullType, connection, fields: [...connection, ...def.config] });
     }
   }
 
@@ -66,8 +75,12 @@ export class PluginRegistry {
     return this.widgets.get(fullType);
   }
 
+  plugin(id: string) {
+    return this.plugins.get(id);
+  }
+
   catalog(): CatalogWidget[] {
-    return [...this.widgets.values()].map(({ plugin, def, fullType }) => ({
+    return [...this.widgets.values()].map(({ plugin, def, fullType, connection }) => ({
       fullType,
       pluginId: plugin.id,
       pluginName: plugin.name,
@@ -78,6 +91,8 @@ export class PluginRegistry {
       defaultSize: def.defaultSize,
       minSize: def.minSize ?? { w: 1, h: 1 },
       config: def.config,
+      connection,
+      testable: typeof plugin.test === "function",
       component: def.component,
       refreshSeconds: def.refreshSeconds ?? 60,
     }));

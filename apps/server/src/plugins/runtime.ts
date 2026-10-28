@@ -1,4 +1,4 @@
-import type { PluginContext, WidgetData } from "@oblivion/sdk";
+import type { Field, PluginContext, PluginDefinition, WidgetData } from "@oblivion/sdk";
 import type { SecretBox } from "../crypto.js";
 import { detectImage } from "../security/image.js";
 import { createSafeHttp, HttpPolicyError } from "../security/safe-http.js";
@@ -52,18 +52,45 @@ export class WidgetRuntime {
   }
 
   private context(reg: RegisteredWidget, stored: Record<string, unknown>): PluginContext {
-    const { def, plugin, fullType } = reg;
+    return this.build(reg.plugin, reg.fields, reg.fullType, stored);
+  }
+
+  private build(
+    plugin: PluginDefinition,
+    fields: Field[],
+    label: string,
+    stored: Record<string, unknown>,
+  ): PluginContext {
     return {
-      config: revealConfig(def.config, stored, this.box),
+      config: revealConfig(fields, stored, this.box),
       http: this.http({
         allowedHosts: plugin.permissions?.network ?? [],
-        configuredUrls: collectUrls(def.config, stored),
+        configuredUrls: collectUrls(fields, stored),
       }),
-      log: (m) => this.log(`[${fullType}] ${String(m).slice(0, 500)}`),
+      log: (m) => this.log(`[${label}] ${String(m).slice(0, 500)}`),
       fail: (m) => {
         throw new ExposedError(String(m).slice(0, 200));
       },
     };
+  }
+
+  /** «Probar conexión»: el plugin comprueba la URL/credenciales y responde con un texto para el usuario. */
+  async testConnection(
+    plugin: PluginDefinition,
+    stored: Record<string, unknown>,
+  ): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+    if (!plugin.test) return { ok: false, error: "Este plugin no puede probar la conexión" };
+    try {
+      const ctx = this.build(plugin, plugin.connection ?? [], `${plugin.id} (prueba)`, stored);
+      const out = await withTimeout(Promise.resolve(plugin.test(ctx)), 15_000);
+      return { ok: true, message: typeof out === "string" && out ? out.slice(0, 200) : "Conexión correcta" };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      this.log(`[${plugin.id}] prueba de conexión: ${detail}`);
+      const safe =
+        err instanceof HttpPolicyError || err instanceof ExposedError ? detail : "No se pudo probar la conexión";
+      return { ok: false, error: safe };
+    }
   }
 
   async getData(

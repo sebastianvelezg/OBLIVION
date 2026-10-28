@@ -9,7 +9,9 @@ if (!sqlite) throw new Error("Este servidor necesita Node.js >= 22.13 (módulo n
 
 export type DB = DatabaseSync;
 
-const MIGRATIONS: string[] = [
+type Migration = string | ((db: DB) => void);
+
+const MIGRATIONS: Migration[] = [
   /* 1 */ `
   CREATE TABLE users (
     id TEXT PRIMARY KEY,
@@ -69,7 +71,79 @@ const MIGRATIONS: string[] = [
   /* 3: contraseñas temporales que obligan a cambiarlas en el primer acceso */ `
   ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;
   `,
+  /* 4: conexiones compartidas (URL + credenciales de un servicio, escritas una sola vez) */ `
+  CREATE TABLE connections (
+    id TEXT PRIMARY KEY,
+    plugin_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    config TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL
+  );
+  ALTER TABLE widgets ADD COLUMN connection_id TEXT REFERENCES connections(id) ON DELETE RESTRICT;
+  CREATE INDEX widgets_connection ON widgets(connection_id);
+  `,
+  /* 5: los widgets que ya llevaban URL/API key pasan a usar una conexión */ moveWidgetCredentialsToConnections,
+  /* 6: estilo propio por widget y fondo propio por página */ `
+  ALTER TABLE widgets ADD COLUMN style TEXT NOT NULL DEFAULT '{}';
+  ALTER TABLE pages ADD COLUMN background TEXT;
+  `,
 ];
+
+/** Campos que antes vivían en cada widget y ahora pertenecen a la conexión del plugin. */
+const LEGACY_CONNECTION: Record<string, { label: string; keys: string[]; identity: string[] }> = {
+  jellyfin: { label: "Jellyfin", keys: ["url", "apiKey"], identity: ["url"] },
+  speedtest: { label: "Speedtest Tracker", keys: ["url", "version", "apiKey"], identity: ["url", "version"] },
+};
+
+/**
+ * Agrupa los widgets de Jellyfin/Speedtest que apuntaban al mismo servidor en una sola
+ * conexión. Los secretos se copian tal cual (ya van cifrados), así que no hace falta la
+ * clave maestra; por eso el grupo se decide por la URL y no por el secreto (cada cifrado
+ * lleva un nonce distinto, aunque la clave sea la misma). Se conserva la del primer widget.
+ */
+function moveWidgetCredentialsToConnections(db: DB) {
+  const rows = db.prepare("SELECT id, type, config FROM widgets").all() as {
+    id: string;
+    type: string;
+    config: string;
+  }[];
+  const byGroup = new Map<string, string>(); // huella de la conexión → id
+  const insert = db.prepare("INSERT INTO connections (id, plugin_id, name, config, created_at) VALUES (?,?,?,?,?)");
+  const update = db.prepare("UPDATE widgets SET config = ?, connection_id = ? WHERE id = ?");
+
+  for (const row of rows) {
+    const pluginId = row.type.split(".")[0]!;
+    const legacy = LEGACY_CONNECTION[pluginId];
+    if (!legacy) continue;
+    let config: Record<string, unknown>;
+    try {
+      config = JSON.parse(row.config);
+    } catch {
+      continue;
+    }
+    if (typeof config.url !== "string") continue;
+
+    const conn: Record<string, unknown> = {};
+    for (const k of legacy.keys) {
+      if (config[k] !== undefined) conn[k] = config[k];
+      delete config[k];
+    }
+    const fingerprint = pluginId + "|" + JSON.stringify(legacy.identity.map((k) => conn[k] ?? null));
+    let id = byGroup.get(fingerprint);
+    if (!id) {
+      id = crypto.randomUUID();
+      let host = "";
+      try {
+        host = new URL(String(conn.url)).host;
+      } catch {
+        /* se queda sin host en el nombre */
+      }
+      insert.run(id, pluginId, host ? `${legacy.label} (${host})` : legacy.label, JSON.stringify(conn), Date.now());
+      byGroup.set(fingerprint, id);
+    }
+    update.run(JSON.stringify(config), id, row.id);
+  }
+}
 
 const SESSION_IDLE_MS = 7 * 24 * 3600 * 1000;
 const SESSION_ABSOLUTE_MS = 30 * 24 * 3600 * 1000;
@@ -108,12 +182,15 @@ export function openDb(dataDir: string | ":memory:"): DB {
   return db;
 }
 
-function migrate(db: DB) {
+/** Aplica las migraciones pendientes (hasta `target`, que solo cambian los tests). */
+export function migrate(db: DB, target = MIGRATIONS.length) {
   const current = (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
-  for (let v = current; v < MIGRATIONS.length; v++) {
+  for (let v = current; v < target; v++) {
     db.exec("BEGIN");
     try {
-      db.exec(MIGRATIONS[v]!);
+      const step = MIGRATIONS[v]!;
+      if (typeof step === "string") db.exec(step);
+      else step(db);
       db.exec(`PRAGMA user_version = ${v + 1}`);
       db.exec("COMMIT");
     } catch (err) {

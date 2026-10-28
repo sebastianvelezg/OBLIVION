@@ -3,6 +3,7 @@ import { Check, Palette, Pencil, Plus, Settings } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogWidget, PageDTO, SessionUser, WidgetDTO } from "@oblivion/sdk";
 import { api } from "../api";
+import { useAppearance } from "../appearance";
 import { AppearancePanel } from "./AppearancePanel";
 import { Grid } from "./Grid";
 import { Logo } from "./Logo";
@@ -43,6 +44,14 @@ export function Dashboard({ user }: { user: SessionUser }) {
   const pages = pagesQ.data?.pages ?? [];
   const active = pages.find((p) => p.id === activeId) ?? pages[0];
   const catalog = useMemo(() => new Map((catalogQ.data?.widgets ?? []).map((w) => [w.fullType, w])), [catalogQ.data]);
+
+  // El fondo propio de la página activa sustituye al general mientras se la mira.
+  const { setPageBackground } = useAppearance();
+  const pageBg = JSON.stringify(active?.background ?? null);
+  useEffect(() => {
+    setPageBackground(JSON.parse(pageBg));
+    return () => setPageBackground(null);
+  }, [pageBg, setPageBackground]);
 
   useEffect(() => {
     if (!active) return;

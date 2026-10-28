@@ -7,8 +7,8 @@ import { definePlugin } from "@oblivion/sdk";
 export const corePlugin = definePlugin({
   id: "core",
   name: "Básicos",
-  version: "0.1.0",
-  description: "Widgets incluidos: reloj, calendario, calculadora, enlaces y páginas embebidas.",
+  version: "0.2.0",
+  description: "Widgets incluidos: reloj, calendario, buscador, saludo, calculadora, enlaces y páginas embebidas.",
   widgets: [
     {
       type: "clock",
@@ -49,6 +49,55 @@ export const corePlugin = definePlugin({
             { value: "0", label: "Domingo" },
           ],
         },
+      ],
+    },
+    {
+      type: "search",
+      name: "Buscador",
+      description: "Una barra de búsqueda que abre Google, DuckDuckGo, YouTube… (o el buscador que tú elijas).",
+      icon: "🔎",
+      component: "search",
+      defaultSize: { w: 4, h: 2 },
+      minSize: { w: 2, h: 2 },
+      config: [
+        {
+          key: "engine",
+          label: "Buscador",
+          type: "select",
+          default: "duckduckgo",
+          options: [
+            { value: "google", label: "Google" },
+            { value: "duckduckgo", label: "DuckDuckGo" },
+            { value: "bing", label: "Bing" },
+            { value: "brave", label: "Brave" },
+            { value: "startpage", label: "Startpage" },
+            { value: "youtube", label: "YouTube" },
+            { value: "github", label: "GitHub" },
+            { value: "wikipedia", label: "Wikipedia" },
+            { value: "custom", label: "Otro (dirección propia)" },
+          ],
+        },
+        {
+          key: "custom",
+          label: "Dirección del buscador propio",
+          type: "url",
+          placeholder: "https://buscador.casa/?q=%s",
+          help: "Solo si eliges «Otro». Escribe %s donde va lo que se busca.",
+        },
+        { key: "newTab", label: "Abrir en pestaña nueva", type: "boolean", default: true },
+      ],
+    },
+    {
+      type: "greeting",
+      name: "Saludo",
+      description: "«Buenos días, …» según la hora, con tu nombre y la fecha.",
+      icon: "👋",
+      component: "greeting",
+      defaultSize: { w: 4, h: 2 },
+      minSize: { w: 3, h: 2 },
+      config: [
+        { key: "name", label: "Nombre", type: "string", placeholder: "Sebastián" },
+        { key: "date", label: "Mostrar la fecha", type: "boolean", default: true },
       ],
     },
     {

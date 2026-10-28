@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { BACKGROUND_ID_PATTERN, DEFAULT_APPEARANCE, PALETTE_IDS, type Appearance } from "@oblivion/sdk";
 import { requireAdmin, requireUser, type AppEnv } from "../auth.js";
-import { audit } from "../db.js";
+import { audit, type DB } from "../db.js";
 import { detectImage } from "../security/image.js";
 import type { AppDeps } from "../app.js";
 
@@ -14,6 +14,16 @@ const GC_GRACE_MS = 10 * 60 * 1000;
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
+export const backgroundSchema = z.object({
+  type: z.enum(["aurora", "plain", "gradient", "image"]),
+  from: hex,
+  to: hex,
+  angle: z.number().int().min(0).max(360),
+  imageId: z.string().regex(BACKGROUND_ID_PATTERN).nullable(),
+  blur: z.number().int().min(0).max(30),
+  dim: z.number().int().min(0).max(80),
+});
+
 export const appearanceSchema = z.object({
   mode: z.enum(["dark", "light", "system"]),
   palette: z.enum(PALETTE_IDS),
@@ -21,21 +31,13 @@ export const appearanceSchema = z.object({
   font: z.enum(["sans", "mono", "serif"]),
   density: z.enum(["compact", "comfortable", "spacious"]),
   card: z.object({
-    style: z.enum(["glass", "solid", "outline", "flat"]),
+    style: z.enum(["glass", "solid", "outline", "flat", "neon", "brutal"]),
     opacity: z.number().int().min(20).max(100),
     blur: z.number().int().min(0).max(40),
     radius: z.number().int().min(0).max(32),
     shadow: z.enum(["none", "soft", "strong"]),
   }),
-  background: z.object({
-    type: z.enum(["aurora", "plain", "gradient", "image"]),
-    from: hex,
-    to: hex,
-    angle: z.number().int().min(0).max(360),
-    imageId: z.string().regex(BACKGROUND_ID_PATTERN).nullable(),
-    blur: z.number().int().min(0).max(30),
-    dim: z.number().int().min(0).max(80),
-  }),
+  background: backgroundSchema,
 }) satisfies z.ZodType<Appearance>;
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -44,6 +46,38 @@ const MIME_BY_EXT: Record<string, string> = {
   webp: "image/webp",
   avif: "image/avif",
 };
+
+/**
+ * Borra del disco las imágenes que ya no usa nadie (ni la apariencia ni el fondo de
+ * alguna página). Respeta las recientes: una imagen recién subida aún no está
+ * referenciada y un guardado anterior no debe llevársela por delante.
+ */
+export function collectBackgroundGarbage(db: DB, uploadsDir: string, now = Date.now()) {
+  if (!fs.existsSync(uploadsDir)) return;
+  const keep = new Set<string>();
+  const note = (json: string | null | undefined, pick: (v: any) => unknown) => {
+    try {
+      const id = pick(JSON.parse(json ?? "null"));
+      if (typeof id === "string") keep.add(id);
+    } catch {
+      /* JSON roto: no referencia nada */
+    }
+  };
+  const setting = db.prepare("SELECT value FROM settings WHERE key = 'appearance'").get() as
+    | { value: string }
+    | undefined;
+  note(setting?.value, (v) => v?.background?.imageId);
+  for (const row of db.prepare("SELECT background FROM pages").all() as { background: string | null }[]) {
+    note(row.background, (v) => v?.imageId);
+  }
+
+  for (const name of fs.readdirSync(uploadsDir)) {
+    if (keep.has(name) || !BACKGROUND_ID_PATTERN.test(name)) continue;
+    const file = path.join(uploadsDir, name);
+    if (now - fs.statSync(file).mtimeMs < GC_GRACE_MS) continue;
+    fs.rmSync(file, { force: true });
+  }
+}
 
 export function appearanceRoutes({ db, config }: AppDeps) {
   const app = new Hono<AppEnv>();
@@ -60,21 +94,6 @@ export function appearanceRoutes({ db, config }: AppDeps) {
       /* JSON roto: caemos al valor por defecto */
     }
     return DEFAULT_APPEARANCE;
-  }
-
-  /**
-   * Borra del disco las imágenes que ya no usa la apariencia. Respeta las
-   * recientes: una imagen recién subida aún no está referenciada y un guardado
-   * anterior no debe llevársela por delante.
-   */
-  function collectGarbage(keep: string | null, now = Date.now()) {
-    if (!fs.existsSync(config.uploadsDir)) return;
-    for (const name of fs.readdirSync(config.uploadsDir)) {
-      if (name === keep || !BACKGROUND_ID_PATTERN.test(name)) continue;
-      const file = path.join(config.uploadsDir, name);
-      if (now - fs.statSync(file).mtimeMs < GC_GRACE_MS) continue;
-      fs.rmSync(file, { force: true });
-    }
   }
 
   app.get("/", requireUser, (c) => c.json({ appearance: load() }));
@@ -94,7 +113,7 @@ export function appearanceRoutes({ db, config }: AppDeps) {
     db.prepare(
       "INSERT INTO settings (key, value) VALUES ('appearance', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     ).run(JSON.stringify(next));
-    collectGarbage(next.background.imageId);
+    collectBackgroundGarbage(db, config.uploadsDir);
     return c.json({ appearance: next });
   });
 

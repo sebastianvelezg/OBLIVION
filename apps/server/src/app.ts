@@ -9,6 +9,7 @@ import type { DB } from "./db.js";
 import type { PluginRegistry } from "./plugins/registry.js";
 import type { WidgetRuntime } from "./plugins/runtime.js";
 import { authRoutes } from "./routes/auth.js";
+import { connectionRoutes } from "./routes/connections.js";
 import { pageRoutes } from "./routes/pages.js";
 import { appearanceRoutes, MAX_BACKGROUND_BYTES } from "./routes/appearance.js";
 import { userRoutes } from "./routes/users.js";
@@ -102,6 +103,7 @@ export function createApp(deps: AppDeps) {
   api.route("/auth", authRoutes(deps));
   api.route("/appearance", appearanceRoutes(deps));
   api.route("/users", userRoutes(deps));
+  api.route("/", connectionRoutes(deps));
   api.route("/", pageRoutes(deps));
   api.notFound((c) => c.json({ error: "No encontrado" }, 404));
 

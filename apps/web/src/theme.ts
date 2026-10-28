@@ -127,6 +127,66 @@ export const PRESETS: Preset[] = [
     }),
   },
   {
+    id: "neon",
+    name: "Neón",
+    hint: "Bordes y resplandor del color de acento",
+    apply: (a) => ({
+      ...a,
+      font: "sans",
+      density: "comfortable",
+      card: { style: "neon", opacity: 45, blur: 16, radius: 18, shadow: "soft" },
+      background: { ...a.background, type: a.background.imageId ? "image" : "aurora" },
+    }),
+  },
+  {
+    id: "brutal",
+    name: "Brutalista",
+    hint: "Bordes gruesos y sombra dura, letra mono",
+    apply: (a) => ({
+      ...a,
+      font: "mono",
+      density: "comfortable",
+      card: { style: "brutal", opacity: 100, blur: 0, radius: 0, shadow: "soft" },
+      background: { ...a.background, type: "plain" },
+    }),
+  },
+  {
+    id: "editorial",
+    name: "Editorial",
+    hint: "Letra con serifa, amplio y sobrio",
+    apply: (a) => ({
+      ...a,
+      font: "serif",
+      density: "spacious",
+      card: { style: "flat", opacity: 60, blur: 0, radius: 4, shadow: "none" },
+      background: { ...a.background, type: "plain" },
+    }),
+  },
+  {
+    id: "bubble",
+    name: "Burbuja",
+    hint: "Muy redondeado, cristal y sombra marcada",
+    apply: (a) => ({
+      ...a,
+      font: "sans",
+      density: "spacious",
+      card: { style: "glass", opacity: 50, blur: 30, radius: 32, shadow: "strong" },
+      background: { ...a.background, type: a.background.imageId ? "image" : "aurora" },
+    }),
+  },
+  {
+    id: "deep",
+    name: "Profundo",
+    hint: "Cristal casi opaco con degradado de fondo",
+    apply: (a) => ({
+      ...a,
+      font: "sans",
+      density: "comfortable",
+      card: { style: "glass", opacity: 82, blur: 10, radius: 12, shadow: "strong" },
+      background: { ...a.background, type: "gradient" },
+    }),
+  },
+  {
     id: "terminal",
     name: "Terminal",
     hint: "Letra monoespaciada y esquinas rectas",
@@ -157,6 +217,20 @@ export function resolvedMode(a: Appearance): "dark" | "light" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/** Variables CSS del color de acento (las usa el tema global y los widgets con acento propio). */
+export function accentVars(accent: string, mode: "dark" | "light"): Record<string, string> {
+  return {
+    "--accent": accent,
+    "--accent-fg": readableOn(accent),
+    "--accent-soft": `color-mix(in oklab, ${accent} 16%, transparent)`,
+    // Acento para usar como COLOR DE TEXTO: se oscurece en modo claro y se aclara en oscuro.
+    "--accent-text":
+      mode === "light"
+        ? `color-mix(in oklab, ${accent} 55%, black)`
+        : `color-mix(in oklab, ${accent} 80%, white)`,
+  };
+}
+
 /** Traduce la apariencia a variables CSS en <html>. Todo pasa por CSSOM (compatible con la CSP). */
 export function applyAppearance(a: Appearance) {
   const root = document.documentElement;
@@ -174,24 +248,21 @@ export function applyAppearance(a: Appearance) {
   set("--fg", t.fg);
   set("--muted", t.muted);
   set("--line", `color-mix(in oklab, ${t.fg} 11%, transparent)`);
-  set("--accent", a.accent);
-  set("--accent-fg", readableOn(a.accent));
-  // Acento para usar como COLOR DE TEXTO: se oscurece en modo claro y se aclara en oscuro.
-  set(
-    "--accent-text",
-    mode === "light"
-      ? `color-mix(in oklab, ${a.accent} 55%, black)`
-      : `color-mix(in oklab, ${a.accent} 80%, white)`,
-  );
+  for (const [k, v] of Object.entries(accentVars(a.accent, mode))) set(k, v);
   set("--good", mode === "dark" ? "#4ade80" : "#16a34a");
   set("--warn", mode === "dark" ? "#fbbf24" : "#d97706");
   set("--bad", mode === "dark" ? "#f87171" : "#dc2626");
 
   // ── tarjeta
   const { style, opacity, blur, radius, shadow } = a.card;
-  const pct = style === "solid" ? 100 : style === "outline" ? Math.min(opacity, 40) : opacity;
+  const opaque = style === "solid" || style === "brutal";
+  const pct = opaque ? 100 : style === "outline" ? Math.min(opacity, 40) : opacity;
   set("--card-bg", `color-mix(in oklab, ${t.solid} ${pct}%, transparent)`);
-  set("--card-blur", style === "solid" ? "0px" : `${blur}px`);
+  set("--card-blur", opaque ? "0px" : `${blur}px`);
+  // Neón y brutalista se dibujan en styles.css con el acento de CADA tarjeta (para que un acento propio funcione).
+  root.dataset.cardStyle = style;
+  set("--neon-glow", `${{ none: 0, soft: 45, strong: 75 }[shadow]}%`);
+  set("--brutal-offset", `${{ none: 0, soft: 5, strong: 9 }[shadow]}px`);
   const borderPct = style === "outline" ? 26 : style === "flat" ? 0 : style === "glass" ? 14 : 10;
   set("--card-border", `color-mix(in oklab, ${t.fg} ${borderPct}%, transparent)`);
   const glassHighlight = style === "glass" ? `inset 0 1px 0 color-mix(in oklab, ${t.fg} 10%, transparent), ` : "";

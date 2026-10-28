@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_APPEARANCE, type Appearance, type SessionUser } from "@oblivion/sdk";
 import { api } from "./api";
 import { Backdrop } from "./components/Backdrop";
@@ -11,9 +11,16 @@ interface Ctx {
   /** Aplica al instante y guarda en el servidor (con pequeña espera). */
   update: (next: Appearance) => void;
   canEdit: boolean;
+  /** Fondo propio de la página que se está viendo (`null`: el general). */
+  setPageBackground: (bg: Appearance["background"] | null) => void;
 }
 
-const AppearanceContext = createContext<Ctx>({ appearance: DEFAULT_APPEARANCE, update: () => {}, canEdit: false });
+const AppearanceContext = createContext<Ctx>({
+  appearance: DEFAULT_APPEARANCE,
+  update: () => {},
+  canEdit: false,
+  setPageBackground: () => {},
+});
 export const useAppearance = () => useContext(AppearanceContext);
 
 /**
@@ -56,12 +63,20 @@ export function AppearanceProvider({ user, children }: { user: SessionUser | nul
     [qc, save],
   );
 
-  const value = useMemo(() => ({ appearance, update, canEdit }), [appearance, update, canEdit]);
+  const [pageBackground, setPageBackground] = useState<Appearance["background"] | null>(null);
+  const value = useMemo(
+    () => ({ appearance, update, canEdit, setPageBackground }),
+    [appearance, update, canEdit],
+  );
+  const shown = useMemo(
+    () => (pageBackground ? { ...appearance, background: pageBackground } : appearance),
+    [appearance, pageBackground],
+  );
 
   return (
     <AppearanceContext.Provider value={value}>
       {/* Sin sesión no se puede pedir la foto (el servidor la protege): se usa el fondo base. */}
-      <Backdrop appearance={appearance} allowImage={!!user} />
+      <Backdrop appearance={shown} allowImage={!!user} />
       {children}
     </AppearanceContext.Provider>
   );

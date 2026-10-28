@@ -13,8 +13,18 @@ async function setup() {
   const ctx = await makeApp({}, { realPlugins: true });
   const c = await loggedInAdmin(ctx.app);
   const page = (await c.get("/api/pages")).json.pages[0];
+  // `config` mezcla, como antes, conexión y opciones del widget: aquí se separan.
   const add = async (type: string, config: Record<string, unknown>) => {
-    const r = await c.post(`/api/pages/${page.id}/widgets`, { type, config });
+    let connectionId: string | undefined;
+    let own = config;
+    if (type.startsWith("speedtest.")) {
+      const { url, version, apiKey, ...rest } = config;
+      own = rest;
+      const made = await c.post("/api/connections", { pluginId: "speedtest", name: "Speedtest", config: { url, version, apiKey } });
+      assert.equal(made.status, 201, JSON.stringify(made.json));
+      connectionId = made.json.connection.id;
+    }
+    const r = await c.post(`/api/pages/${page.id}/widgets`, { type, config: own, connectionId });
     assert.equal(r.status, 201, JSON.stringify(r.json));
     return r.json.widget as { id: string };
   };
@@ -80,7 +90,7 @@ describe("plugin Speedtest Tracker", () => {
 
   it("historial: lista los tests con barra relativa y marca los fallidos", async () => {
     const { data } = await setup();
-    const d = await data("speedtest.history", v2({ limit: 8 }));
+    const d = await data("speedtest.history", v2({ limit: 8, mode: "list" }));
     assert.equal(d.ok, true, JSON.stringify(d));
     assert.equal(d.view.kind, "list");
     assert.equal(d.view.items.length, 4);
@@ -91,6 +101,19 @@ describe("plugin Speedtest Tracker", () => {
     assert.equal(failed.tone, "bad");
     assert.match(failed.title, /failed/);
     assert.match(b.title, /1\.20 Gbps/);
+  });
+
+  it("historial como gráfica: dos series de antiguo a reciente, sin los tests fallidos", async () => {
+    const { data } = await setup();
+    const d = await data("speedtest.history", v2());
+    assert.equal(d.ok, true, JSON.stringify(d));
+    assert.equal(d.view.kind, "chart");
+    assert.equal(d.view.unit, "Mbps");
+    assert.deepEqual(d.view.series.map((s: any) => s.name), ["Descarga", "Subida"]);
+    // 4 resultados, 1 fallido → 3 puntos; el más reciente (940.4) va al final.
+    assert.deepEqual(d.view.series[0].points, [310.2, 1204.7, 940.4]);
+    assert.equal(d.view.labels.length, 3);
+    assert.match(d.view.caption, /3 tests · ping medio 15 ms/);
   });
 
   it("errores explicados: sin token, token malo, versión equivocada", async () => {
