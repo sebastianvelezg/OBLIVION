@@ -384,6 +384,49 @@ describe("configuración en texto: apariencia", () => {
 });
 
 describe("configuración en texto: comentarios", () => {
+  it("el contenido interior (escala, piezas, columnas...) y el calendario se editan desde el texto", async () => {
+    const { app } = await makeApp({}, { realPlugins: true });
+    const c = await loggedInAdmin(app);
+    const text = `pages:
+  - id: inicio
+    title: Casa
+    widgets:
+      - id: tareas
+        type: core.reminders
+        layout: { x: 0, y: 0, w: 4, h: 6 }
+      - id: agenda
+        type: core.calendar
+        layout: { x: 4, y: 0, w: 6, h: 8 }
+        config: { weekStart: "1", showReminders: true, remindersFrom: tareas }
+        style: { scale: 120, itemSize: l, columns: 3, pad: roomy, overflow: scroll }
+`;
+    const res = await apply(c, { pages: text });
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+    const agenda = (await c.get("/api/pages")).json.pages[0].widgets.find((w: any) => w.id === "agenda");
+    assert.deepEqual(agenda.style, { scale: 120, itemSize: "l", columns: 3, pad: "roomy", overflow: "scroll" });
+    assert.equal(agenda.config.remindersFrom, "tareas");
+
+    // Lo exportado vuelve a ser exactamente lo mismo: aplicarlo no cambia nada.
+    const again = await plan(c, await docs(c));
+    assert.deepEqual(again.json.changes, []);
+    assert.match((await docs(c)).pages, /scale: 120/);
+
+    // Los errores dicen qué ajuste falla y qué se admite; un widget que no es una lista de recordatorios se rechaza al escribirlo.
+    const bad = async (extra: string) =>
+      (await plan(c, { pages: `pages:
+  - title: A
+    widgets:
+      - { type: core.calendar, ${extra} }
+` })).json;
+    let r = await bad("style: { scale: 500 }");
+    assert.equal(r.ok, false);
+    assert.match(r.problems[0].message, /«scale» debe ser un porcentaje entero de 50 a 200/);
+    r = await bad("style: { itemSize: gigante }");
+    assert.match(r.problems[0].message, /xs, s, m, l o xl/);
+    r = await bad("config: { remindersFrom: Mi Lista }");
+    assert.match(r.problems[0].message, /no es un widget válido/);
+  });
+
   it("el texto aplicado se conserva con sus comentarios hasta que otra cosa cambie los datos", async () => {
     const { app } = await makeApp();
     const c = await loggedInAdmin(app);

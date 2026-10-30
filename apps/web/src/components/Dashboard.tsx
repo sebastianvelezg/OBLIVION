@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, LayoutGrid, Magnet, Move, Palette, Pencil, Plus, Settings } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { CatalogWidget, PageDTO, SessionUser, WidgetDTO } from "@oblivion/sdk";
+import type { CatalogWidget, PageDTO, SessionUser, WidgetDTO, WidgetStyle } from "@oblivion/sdk";
 import { api } from "../api";
 import { useAppearance } from "../appearance";
 import { AppearancePanel } from "./AppearancePanel";
@@ -104,6 +104,24 @@ export function Dashboard({ user }: { user: SessionUser }) {
     onError: (e) => toast(e.message),
   });
 
+  // Retoques rápidos de estilo desde la barra de edición (escala del contenido): se ven al instante.
+  const restyle = useMutation({
+    mutationFn: (v: { id: string; style: WidgetStyle }) => api.patch(`/widgets/${v.id}`, { style: v.style }),
+    onError: (e) => {
+      toast(e.message);
+      qc.invalidateQueries({ queryKey: ["pages"] });
+    },
+  });
+
+  function onStyle(w: WidgetDTO, patch: Partial<WidgetStyle>) {
+    const style: WidgetStyle = { ...w.style, ...patch };
+    for (const k of Object.keys(style) as (keyof WidgetStyle)[]) if (style[k] === undefined) delete style[k];
+    qc.setQueryData<{ pages: PageDTO[] }>(["pages"], (old) =>
+      old && { pages: old.pages.map((p) => ({ ...p, widgets: p.widgets.map((x) => (x.id === w.id ? { ...x, style } : x)) })) },
+    );
+    restyle.mutate({ id: w.id, style });
+  }
+
   const duplicate = useMutation({
     mutationFn: (w: WidgetDTO) => api.post(`/widgets/${w.id}/duplicate`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pages"] }),
@@ -199,6 +217,7 @@ export function Dashboard({ user }: { user: SessionUser }) {
               if (confirm(`¿Eliminar «${w.title || catalog.get(w.type)?.name || w.type}»?`)) remove.mutate(w);
             }}
             onDuplicate={(w) => duplicate.mutate(w)}
+            onStyle={onStyle}
           />
         )}
 

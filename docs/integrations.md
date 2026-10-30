@@ -76,7 +76,21 @@ Cuatro widgets: **Reproduciendo ahora**, **Biblioteca**, **Últimos añadidos** 
 |---|---|
 | **Reproduciendo ahora** | Quién ve qué, con barra de progreso, si está en pausa y si el servidor está **transcodificando** (en ámbar). Se refresca cada 10 s. |
 | **Biblioteca** | Películas, series, episodios, colecciones (y canciones/álbumes si tienes), más el nombre y la versión del servidor. |
-| **Últimos añadidos** | Carátulas de lo último de tu biblioteca (películas, series o episodios, y cuántos mostrar). |
+| **Últimos añadidos** | Carátulas de lo último de tu biblioteca (películas, series, episodios o álbumes, y cuántos mostrar). Con **Filas por biblioteca** enseña una fila de carátulas por cada biblioteca o género (ver abajo). |
+
+**Una fila por biblioteca.** En *Últimos añadidos* abre **Filas por biblioteca** y añade una fila por cada cosa que quieras ver: un título, la **biblioteca de Jellyfin** (su nombre; sin tildes ni mayúsculas da igual), qué mostrar, un género opcional y cuántas carátulas. Las filas se desplazan hacia los lados y se reparten el alto del widget; en **Contenido interior → Tamaño de las piezas** eliges lo grandes que son las carátulas. Si el nombre de una biblioteca no existe, la fila te dice cuáles hay. Desde el texto:
+
+```yaml
+- id: novedades
+  type: jellyfin.latest
+  connection: jellyfin
+  layout: { x: 0, y: 0, w: 8, h: 12 }
+  config:
+    rows:
+      - { title: Películas, library: Películas, kind: Movie, limit: 14 }
+      - { title: Series, library: Series, kind: Series, limit: 12 }
+      - { title: Anime, library: Anime, kind: Series, limit: 12 }
+```
 
 | **Panel de Jellyfin** | Un solo widget con las secciones que elijas (reproduciendo, biblioteca, últimos añadidos), con casillas para activar cada una. Si solo falla una sección, se avisa en ella; si falla la conexión, ves el error de la conexión. |
 

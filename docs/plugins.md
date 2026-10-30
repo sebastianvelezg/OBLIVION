@@ -121,6 +121,8 @@ sizes: {                                     // opcional: los botones S · M · 
 },
 ```
 
+El contenido también **se escala solo** con la tarjeta respecto a `defaultSize` (entre 90 % y 140 %), y el usuario puede fijarlo o cambiar el tamaño de las piezas, las columnas y el desplazamiento desde el aspecto del widget; tu vista no tiene que hacer nada para que funcione. Eso sí, calcula siempre con el espacio que te da la interfaz y no con medidas fijas.
+
 Los tamaños que no declares se deducen de `defaultSize` (sin salirse de las 12 columnas ni bajar de `minSize`). Si tu lista es de titulares, registros o mensajes que conviene recorrer, devuelve `scroll: true` en la vista `list` para que se pueda desplazar en vez de resumirse.
 
 ### Código compartido entre plugins
@@ -154,6 +156,7 @@ Si el plugin tiene un campo `url` en su conexión, el título del widget abre es
 | `select` | Lista con `options: [{ value, label }]` |
 | `secret` | API key o token. Se **cifra** al guardarse y **nunca** vuelve al navegador |
 | `list` | Lista de elementos con `itemFields` (p. ej. la lista de servicios) |
+| `widget` | Elige otro widget del dashboard (guarda su id). `widgetType: "core.reminders"` limita cuáles se ofrecen |
 
 Cada campo admite `label`, `required`, `default`, `placeholder` y `help`.
 
@@ -178,7 +181,7 @@ Los plugins **no** envían HTML ni JavaScript al navegador. Devuelven una *vista
 | `metric` | Un valor grande + detalle (`rows`) + tira de pronóstico (`strip`) |
 | `stats` | Cuadrícula de cifras (`items: [{ label, value, hint?, tone? }]`) |
 | `list` | Filas con título, subtítulo, valor a la derecha y barra de progreso opcional; cada fila puede llevar un `href` (solo `http(s)`) para que el título abra un enlace |
-| `media` | Cuadrícula de carátulas (`items: [{ title, subtitle?, image?, badge?, progress? }]`) |
+| `media` | Cuadrícula de carátulas (`items: [{ title, subtitle?, image?, badge?, progress? }]`); con `layout: "row"` es una sola fila que se desplaza hacia los lados (usa `sections` para apilar varias, una por biblioteca) |
 | `message` | Un texto (avisos, errores) |
 | `chart` | Gráfica de líneas: `{ unit?, labels?, series: [{ name, points: number[] }], caption? }` (de antiguo a reciente; hasta 4 series de 200 puntos) |
 | `sections` | Varias de las vistas anteriores apiladas, cada una con su título (`sections: [{ title?, view }]`, máx. 6, sin anidar). Sirve para un panel que combina varias cosas; si una sección falla, devuelve un `message` en su lugar. |

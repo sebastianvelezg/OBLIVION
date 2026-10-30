@@ -1,5 +1,6 @@
 import type { Field } from "@oblivion/sdk";
 import { SecretBox } from "../crypto.js";
+import { ID_PATTERN } from "../ids.js";
 
 export class ConfigError extends Error {}
 
@@ -77,6 +78,10 @@ function coerce(f: Field, raw: unknown): unknown {
     }
     case "boolean":
       return raw === true || raw === "true";
+    case "widget": {
+      if (typeof raw !== "string" || !ID_PATTERN.test(raw.trim())) throw new ConfigError(`«${f.label}» no es un widget válido`);
+      return raw.trim();
+    }
     case "select": {
       if (typeof raw !== "string" || !f.options?.some((o) => o.value === raw)) {
         throw new ConfigError(`«${f.label}» tiene una opción inválida`);

@@ -1,7 +1,8 @@
-import { Copy, ExternalLink, GripVertical, Settings2, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, GripVertical, Minus, Plus, Settings2, Trash2 } from "lucide-react";
 import type { CSSProperties } from "react";
-import type { CatalogWidget, WidgetDTO } from "@oblivion/sdk";
+import type { CatalogWidget, WidgetDTO, WidgetStyle } from "@oblivion/sdk";
 import { Measured } from "../lib/box";
+import { effectiveScale, NO_SCALE, optionsOf, PAD_PX, ViewOptionsProvider } from "../lib/options";
 import { presetFor, sizePresets } from "../lib/sizes";
 import { accentVars } from "../theme";
 import { CalculatorWidget } from "../widgets/CalculatorWidget";
@@ -36,7 +37,7 @@ function Body({
     case "clock":
       return <ClockWidget config={widget.config} />;
     case "calendar":
-      return <CalendarWidget config={widget.config} />;
+      return <CalendarWidget config={widget.config} canEdit={canEdit && !editing} />;
     case "calculator":
       return <CalculatorWidget />;
     case "search":
@@ -65,6 +66,7 @@ export function WidgetFrame({
   onDelete,
   onDuplicate,
   onResize,
+  onStyle,
 }: {
   widget: WidgetDTO;
   def: CatalogWidget | undefined;
@@ -77,6 +79,8 @@ export function WidgetFrame({
   onDelete: () => void;
   onDuplicate: () => void;
   onResize: (w: number, h: number) => void;
+  /** Cambia solo algunos retoques de estilo (la escala del contenido, desde la barra de edición). */
+  onStyle: (patch: Partial<WidgetStyle>) => void;
 }) {
   // Título: «auto» solo si el usuario escribió uno; «show» cae al nombre del widget; «hide» lo quita.
   const mode = widget.style?.titleMode ?? "auto";
@@ -92,6 +96,8 @@ export function WidgetFrame({
     own["--card-bg"] = `color-mix(in oklab, var(--surface-solid) ${widget.style.opacity}%, transparent)`;
   }
 
+  if (widget.style?.pad && widget.style.pad !== "normal") own["--card-pad"] = `${PAD_PX[widget.style.pad]}px`;
+
   const link = widget.link;
   const linkProps = { href: link ?? undefined, target: "_blank", rel: "noopener noreferrer" } as const;
   const bare = !!widget.style?.bare;
@@ -104,6 +110,10 @@ export function WidgetFrame({
   const presets = def ? sizePresets(def) : [];
   const current = presetFor(presets, widget.w, widget.h);
   const name = widget.title || def?.name || widget.type;
+  const scale = effectiveScale(widget.style, def, widget.w, widget.h);
+  const manualScale = !!widget.style?.scale;
+  const percent = Math.round(scale * 100);
+  const stepScale = (dir: 1 | -1) => onStyle({ scale: Math.max(50, Math.min(200, Math.round((percent + dir * 10) / 5) * 5)) });
 
   return (
     <div className="widget-wrap size-full">
@@ -160,10 +170,13 @@ export function WidgetFrame({
         <Measured
           className="absolute overflow-hidden"
           style={{ inset: heading ? "10px var(--card-pad) var(--card-pad)" : "var(--card-pad)" }}
+          scale={scale}
         >
           {() =>
             def ? (
-              <Body widget={widget} def={def} editing={editing} canEdit={canEdit} />
+              <ViewOptionsProvider value={optionsOf(widget.style)}>
+                <Body widget={widget} def={def} editing={editing} canEdit={canEdit} />
+              </ViewOptionsProvider>
             ) : (
               <p className="text-sm text-muted">
                 El plugin de este widget (<code>{widget.type}</code>) no está instalado.
@@ -203,6 +216,25 @@ export function WidgetFrame({
                     {p.short}
                   </button>
                 ))}
+              </span>
+            )}
+            {def && !NO_SCALE.has(def.component ?? "") && (
+              <span className="edit-chip edit-scale no-drag" role="group" aria-label="Tamaño del contenido">
+                <button type="button" onClick={() => stepScale(-1)} disabled={percent <= 50} aria-label="Contenido más pequeño" title="Contenido más pequeño">
+                  <Minus size={12} />
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={manualScale}
+                  className="tabular-nums"
+                  onClick={() => manualScale && onStyle({ scale: undefined })}
+                  title={manualScale ? "Escala fija: pulsa para volver a automática" : "Escala automática (crece con la tarjeta)"}
+                >
+                  {percent}%
+                </button>
+                <button type="button" onClick={() => stepScale(1)} disabled={percent >= 200} aria-label="Contenido más grande" title="Contenido más grande">
+                  <Plus size={12} />
+                </button>
               </span>
             )}
             <span className="edit-chip no-drag">

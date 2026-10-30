@@ -49,7 +49,17 @@ export function makePng(w: number, h: number, hue: number): Buffer {
 }
 
 const id = (n: number) => n.toString(16).padStart(32, "0");
-export const IDS = { dune: id(1), severance: id(2), episode: id(3), noImage: id(4), htmlImage: id(5), arcane: id(6) };
+export const IDS = {
+  dune: id(1), severance: id(2), episode: id(3), noImage: id(4), htmlImage: id(5), arcane: id(6),
+  // Bibliotecas y un título que solo existe dentro de «Anime».
+  libMovies: id(0x101), libSeries: id(0x102), libAnime: id(0x103), frieren: id(7),
+};
+
+const LIBRARIES = [
+  { Id: IDS.libMovies, Name: "Películas", CollectionType: "movies" },
+  { Id: IDS.libSeries, Name: "Series", CollectionType: "tvshows" },
+  { Id: IDS.libAnime, Name: "Anime", CollectionType: "tvshows" },
+];
 
 const SESSIONS = [
   {
@@ -72,16 +82,18 @@ const SESSIONS = [
   { UserName: "invitado", Client: "Web", DeviceName: "Firefox" }, // conectado, sin reproducir
 ];
 
-const ITEMS = [
-  { Id: IDS.dune, Name: "Dune", Type: "Movie", ProductionYear: 2021, ImageTags: { Primary: "a" } },
-  { Id: IDS.severance, Name: "Severance", Type: "Series", ProductionYear: 2022, ImageTags: { Primary: "b" } },
-  { Id: IDS.arcane, Name: "Arcane", Type: "Series", ProductionYear: 2021, ImageTags: { Primary: "c" } },
-  { Id: IDS.noImage, Name: "Película sin carátula", Type: "Movie", ProductionYear: 1999 },
-  { Id: IDS.htmlImage, Name: "Carátula rota", Type: "Movie", ProductionYear: 2005, ImageTags: { Primary: "d" } },
+// `Lib` y `Genres` solo los usa el simulador para filtrar por ParentId y Genres; el Anime solo aparece al pedir esa biblioteca.
+const ITEMS: Record<string, any>[] = [
+  { Id: IDS.dune, Name: "Dune", Type: "Movie", ProductionYear: 2021, ImageTags: { Primary: "a" }, Lib: IDS.libMovies, Genres: ["Ciencia ficción"] },
+  { Id: IDS.severance, Name: "Severance", Type: "Series", ProductionYear: 2022, ImageTags: { Primary: "b" }, Lib: IDS.libSeries, Genres: ["Drama"] },
+  { Id: IDS.arcane, Name: "Arcane", Type: "Series", ProductionYear: 2021, ImageTags: { Primary: "c" }, Lib: IDS.libSeries, Genres: ["Animation"] },
+  { Id: IDS.noImage, Name: "Película sin carátula", Type: "Movie", ProductionYear: 1999, Lib: IDS.libMovies, Genres: [] },
+  { Id: IDS.htmlImage, Name: "Carátula rota", Type: "Movie", ProductionYear: 2005, ImageTags: { Primary: "d" }, Lib: IDS.libMovies, Genres: [] },
   {
     Id: IDS.episode, Name: "Piloto", Type: "Episode", SeriesName: "Fallout", SeriesId: IDS.arcane,
     ParentIndexNumber: 1, IndexNumber: 1, ProductionYear: 2024,
   },
+  { Id: IDS.frieren, Name: "Frieren", Type: "Series", ProductionYear: 2023, ImageTags: { Primary: "e" }, Lib: IDS.libAnime, Genres: ["Anime"], OnlyInLibrary: true },
 ];
 
 export interface MockJellyfin {
@@ -111,10 +123,16 @@ export async function startMockJellyfin(port = 0): Promise<MockJellyfin> {
     if (url.pathname === "/Items/Counts") {
       return json(200, { MovieCount: 1234, SeriesCount: 87, EpisodeCount: 5421, SongCount: 0, AlbumCount: 0, BoxSetCount: 12 });
     }
+    if (url.pathname === "/Library/MediaFolders") return json(200, { Items: LIBRARIES, TotalRecordCount: LIBRARIES.length });
     if (url.pathname === "/Items") {
       const types = (url.searchParams.get("IncludeItemTypes") ?? "").split(",");
       const limit = Number(url.searchParams.get("Limit") ?? 10);
-      return json(200, { Items: ITEMS.filter((i) => types.includes(i.Type)).slice(0, limit), TotalRecordCount: ITEMS.length });
+      const parent = url.searchParams.get("ParentId");
+      const genre = url.searchParams.get("Genres");
+      const found = ITEMS.filter(
+        (i) => types.includes(i.Type) && (parent ? i.Lib === parent : !i.OnlyInLibrary) && (!genre || i.Genres?.includes(genre)),
+      );
+      return json(200, { Items: found.slice(0, limit), TotalRecordCount: found.length });
     }
     const img = /^\/Items\/([a-f0-9]+)\/Images\/Primary$/.exec(url.pathname);
     if (img) {

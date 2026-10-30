@@ -34,7 +34,7 @@ export const corePlugin = definePlugin({
     {
       type: "calendar",
       name: "Calendario",
-      description: "Calendario del mes con el día de hoy resaltado.",
+      description: "Calendario del mes: marca los días con recordatorios; toca un día para ver su agenda y añadir cosas.",
       icon: "📅",
       component: "calendar",
       defaultSize: { w: 3, h: 6 },
@@ -50,6 +50,14 @@ export const corePlugin = definePlugin({
             { value: "1", label: "Lunes" },
             { value: "0", label: "Domingo" },
           ],
+        },
+        { key: "showReminders", label: "Mostrar y añadir recordatorios", type: "boolean", default: true },
+        {
+          key: "remindersFrom",
+          label: "Lista de recordatorios",
+          type: "widget",
+          widgetType: "core.reminders",
+          help: "Vacío = usa todas tus listas de Recordatorios para marcar los días; lo que añadas aquí va a la primera.",
         },
       ],
     },

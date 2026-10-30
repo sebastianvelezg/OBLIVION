@@ -1,6 +1,6 @@
 import { useState } from "react";
 import ReactGridLayout, { noCompactor, useContainerWidth, verticalCompactor, type Layout } from "react-grid-layout";
-import type { CatalogWidget, WidgetDTO } from "@oblivion/sdk";
+import type { CatalogWidget, WidgetDTO, WidgetStyle } from "@oblivion/sdk";
 import { GRID_COLUMNS } from "@oblivion/sdk";
 import { useAppearance } from "../appearance";
 import { resolveCollisions, type LayoutItem } from "../lib/layout";
@@ -21,6 +21,7 @@ export function Grid({
   onEdit,
   onDelete,
   onDuplicate,
+  onStyle,
 }: {
   widgets: WidgetDTO[];
   catalog: Map<string, CatalogWidget>;
@@ -29,6 +30,7 @@ export function Grid({
   onEdit: (w: WidgetDTO) => void;
   onDelete: (w: WidgetDTO) => void;
   onDuplicate: (w: WidgetDTO) => void;
+  onStyle: (w: WidgetDTO, patch: Partial<WidgetStyle>) => void;
 }) {
   const { width, containerRef, mounted } = useContainerWidth();
   const { canEdit, appearance } = useAppearance();
@@ -56,6 +58,7 @@ export function Grid({
       onDelete={() => onDelete(w)}
       onDuplicate={() => onDuplicate(w)}
       onResize={(nw, nh) => applySize(w.id, nw, nh)}
+      onStyle={(patch) => onStyle(w, patch)}
     />
   );
 

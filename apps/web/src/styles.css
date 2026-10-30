@@ -281,6 +281,11 @@ html[data-card-style="brutal"] .widget.is-bare {
   box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
+@container widget (max-width: 300px) {
+  .edit-scale {
+    display: none;
+  }
+}
 @container widget (max-width: 250px) {
   .edit-sizes {
     display: none;
