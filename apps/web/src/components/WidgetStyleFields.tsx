@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
-import type { WidgetStyle } from "@oblivion/sdk";
+import type { ItemSize, WidgetStyle } from "@oblivion/sdk";
 import { api } from "../api";
 import { prepareBackground } from "../lib/image";
 import { ACCENTS } from "../theme";
@@ -9,6 +9,15 @@ import { Field, Slider, toast } from "./ui";
 
 /** Rojo «de alerta», útil para destacar un widget concreto. */
 const ALERT = { name: "Rojo alerta", value: "#ef4444" };
+
+const ITEM_LABELS: [ItemSize | undefined, string][] = [
+  [undefined, "Auto"],
+  ["xs", "XS"],
+  ["s", "S"],
+  ["m", "M"],
+  ["l", "L"],
+  ["xl", "XL"],
+];
 
 /** Retoques de aspecto de un widget: título, acento, tarjeta, imagen y enlace. Sin definir, manda el estilo global. */
 export function WidgetStyleFields({
@@ -57,6 +66,77 @@ export function WidgetStyleFields({
             <option value="hide">Ocultar</option>
           </select>
         </Field>
+
+        <div className="space-y-4 rounded-xl border border-line p-3">
+          <div>
+            <span className="block text-sm font-medium">Contenido interior</span>
+            <p className="mt-0.5 text-xs text-muted">
+              Por defecto el contenido crece o encoge solo con la tarjeta. Aquí lo fijas tú. Las piezas son las carátulas, las cifras o las filas.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">
+              <span>
+                Escala fija
+                <span className="block text-xs text-muted">Apagada, es automática.</span>
+              </span>
+              <input
+                type="checkbox"
+                className="size-4 shrink-0 accent-[var(--accent)]"
+                checked={style.scale !== undefined}
+                onChange={(e) => set({ scale: e.target.checked ? 100 : undefined })}
+              />
+            </label>
+            {style.scale !== undefined && (
+              <Slider label="Escala del contenido" value={style.scale} min={50} max={200} step={5} unit="%" onChange={(scale) => set({ scale })} />
+            )}
+          </div>
+
+          <div>
+            <span className="label">Tamaño de las piezas</span>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Tamaño de las piezas">
+              {ITEM_LABELS.map(([id, text]) => (
+                <button
+                  key={text}
+                  type="button"
+                  className={`btn px-3 py-1 text-xs ${style.itemSize === id ? "" : "btn-ghost"}`}
+                  aria-pressed={style.itemSize === id}
+                  onClick={() => set({ itemSize: id })}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Columnas">
+              <select className="input" value={style.columns ?? ""} onChange={(e) => set({ columns: e.target.value ? Number(e.target.value) : undefined })}>
+                <option value="">Automáticas</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Relleno de la tarjeta">
+              <select className="input" value={style.pad ?? "normal"} onChange={(e) => set({ pad: e.target.value === "normal" ? undefined : (e.target.value as WidgetStyle["pad"]) })}>
+                <option value="none">Ninguno</option>
+                <option value="tight">Ajustado</option>
+                <option value="normal">Normal</option>
+                <option value="roomy">Amplio</option>
+              </select>
+            </Field>
+            <Field label="Lo que no cabe">
+              <select className="input" value={style.overflow ?? "fit"} onChange={(e) => set({ overflow: e.target.value === "scroll" ? "scroll" : undefined })}>
+                <option value="fit">Resumir («+N más»)</option>
+                <option value="scroll">Desplazar</option>
+              </select>
+            </Field>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <label className="flex cursor-pointer items-center justify-between gap-4 text-sm">

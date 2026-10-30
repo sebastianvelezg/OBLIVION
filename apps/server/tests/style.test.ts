@@ -37,6 +37,36 @@ describe("estilo por widget", () => {
     assert.equal(cleared.json.widget.link, null);
   });
 
+  it("guarda los ajustes del contenido interior y descarta los valores por defecto", async () => {
+    const { c, add } = await setup();
+    const made = await add({ style: { scale: 125, itemSize: "l", columns: 3, pad: "roomy", overflow: "scroll" } });
+    assert.equal(made.status, 201, JSON.stringify(made.json));
+    assert.deepEqual(made.json.widget.style, { scale: 125, itemSize: "l", columns: 3, pad: "roomy", overflow: "scroll" });
+    // `normal` y `fit` son lo de fábrica: no se guardan.
+    const patched = await c.patch(`/api/widgets/${made.json.widget.id}`, { style: { pad: "normal", overflow: "fit", scale: null, itemSize: null, columns: null } });
+    assert.deepEqual(patched.json.widget.style, {});
+  });
+
+  it("explica qué ajuste del contenido es inválido", async () => {
+    const { c, add } = await setup();
+    const made = await add({});
+    for (const [style, text] of [
+      [{ scale: 49 }, /«scale»/],
+      [{ scale: 201 }, /«scale»/],
+      [{ scale: 99.5 }, /«scale»/],
+      [{ itemSize: "xxl" }, /«itemSize».*xs, s, m, l o xl/],
+      [{ columns: 0 }, /«columns»/],
+      [{ columns: 9 }, /«columns»/],
+      [{ pad: "huge" }, /«pad»/],
+      [{ overflow: "hidden" }, /«overflow»/],
+      [{ zoom: 2 }, /«zoom» no es un ajuste conocido/],
+    ] as const) {
+      const r = await c.patch(`/api/widgets/${made.json.widget.id}`, { style });
+      assert.equal(r.status, 400, JSON.stringify(style));
+      assert.match(r.json.error, text, JSON.stringify(style));
+    }
+  });
+
   it("rechaza colores, opacidades, enlaces y claves inválidos", async () => {
     const { c, add } = await setup();
     for (const style of [

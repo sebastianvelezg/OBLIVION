@@ -136,6 +136,41 @@ describe("plugin Jellyfin", () => {
     assert.equal(e.image, IDS.arcane);
   });
 
+  it("«Últimos añadidos» con filas: una fila de carátulas por biblioteca y género", async () => {
+    const { c, add } = await setup();
+    const w = await add("jellyfin.latest", {
+      rows: [
+        { title: "Películas", library: "películas", kind: "Movie", limit: 5 },
+        { title: "Anime", library: "Anime", kind: "Series", limit: 5 },
+        { title: "Animación", genre: "Animation", kind: "Series", limit: 5 },
+        { title: "Perdida", library: "Documentales" },
+      ],
+    });
+    const d = (await c.get(`/api/widgets/${w.id}/data`)).json;
+    assert.equal(d.ok, true, JSON.stringify(d));
+    assert.equal(d.view.kind, "sections");
+    const [movies, anime, genre, missing] = d.view.sections;
+    assert.equal(movies.title, "Películas");
+    assert.equal(movies.view.layout, "row");
+    assert.deepEqual(
+      movies.view.items.map((i: any) => i.title),
+      ["Dune", "Película sin carátula", "Carátula rota"],
+      "solo lo de esa biblioteca (el nombre se compara sin tildes ni mayúsculas)",
+    );
+    assert.deepEqual(anime.view.items.map((i: any) => i.title), ["Frieren"], "el anime solo sale al pedir su biblioteca");
+    assert.deepEqual(genre.view.items.map((i: any) => i.title), ["Arcane"]);
+    // Una biblioteca que no existe no rompe las demás: avisa y dice cuáles hay.
+    assert.equal(missing.view.kind, "message");
+    assert.match(missing.view.text, /Documentales/);
+    assert.match(missing.view.text, /Películas, Series, Anime/);
+    // Sin filas, la vista sigue siendo una cuadrícula sin anime.
+    const plain = await add("jellyfin.latest", { kind: "Series" });
+    const p = (await c.get(`/api/widgets/${plain.id}/data`)).json.view;
+    assert.equal(p.kind, "media");
+    assert.equal(p.layout, undefined);
+    assert.equal(p.items.some((i: any) => i.title === "Frieren"), false);
+  });
+
   it("el proxy de imágenes sirve PNG y rechaza lo que no es imagen", async () => {
     const { c, add, app } = await setup();
     const w = await add("jellyfin.latest");

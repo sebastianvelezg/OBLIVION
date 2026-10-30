@@ -3,50 +3,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { WidgetDTO } from "@oblivion/sdk";
 import { toast } from "../components/ui";
 import { useBox } from "../lib/box";
+import { dueLabel, newItem, tone, urgency, type Item } from "./reminderStore";
 import { useWidgetState } from "./useWidgetState";
-
-interface Item {
-  id: string;
-  text: string;
-  done: boolean;
-  due: string | null; // YYYY-MM-DD o YYYY-MM-DDTHH:mm
-  createdAt: number;
-}
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-type Urgency = "overdue" | "today" | "tomorrow" | "later" | "none";
-
-function urgency(due: string | null, now: Date): Urgency {
-  if (!due) return "none";
-  const day = due.slice(0, 10);
-  const today = ymd(now);
-  const tomorrow = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
-  if (due.length > 10 && new Date(due) < now) return "overdue";
-  if (day < today) return "overdue";
-  if (day === today) return "today";
-  if (day === tomorrow) return "tomorrow";
-  return "later";
-}
-
-function dueLabel(item: Item, u: Urgency): string {
-  const time = item.due && item.due.length > 10 ? item.due.slice(11) : "";
-  if (u === "today") return time ? `Hoy ${time}` : "Hoy";
-  if (u === "tomorrow") return time ? `Mañana ${time}` : "Mañana";
-  if (u === "overdue" && item.due && item.due.slice(0, 10) === ymd(new Date())) return `Venció ${time}`;
-  const d = new Date(item.due!.slice(0, 10) + "T12:00:00");
-  const text = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-  return time ? `${text} ${time}` : text;
-}
-
-const tone: Record<Urgency, string> = {
-  overdue: "bg-bad/15 text-bad",
-  today: "bg-warn/15 text-warn",
-  tomorrow: "bg-accent-soft text-fg",
-  later: "bg-accent-soft text-muted",
-  none: "",
-};
 
 export function RemindersWidget({ widget, canEdit }: { widget: WidgetDTO; canEdit: boolean }) {
   const box = useBox();
@@ -95,9 +53,7 @@ export function RemindersWidget({ widget, canEdit }: { widget: WidgetDTO; canEdi
     const t = text.trim();
     if (!t || state.items.length >= 200) return;
     const due = date ? (time ? `${date}T${time}` : date) : null;
-    update({
-      items: [...state.items, { id: crypto.randomUUID().slice(0, 8), text: t.slice(0, 200), done: false, due, createdAt: Date.now() }],
-    });
+    update({ items: [...state.items, newItem(t, due)] });
     setText("");
     setDate("");
     setTime("");

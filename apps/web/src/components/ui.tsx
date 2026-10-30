@@ -104,6 +104,7 @@ export function Slider({
   min,
   max,
   unit = "",
+  step = 1,
   onChange,
 }: {
   label: string;
@@ -111,6 +112,7 @@ export function Slider({
   min: number;
   max: number;
   unit?: string;
+  step?: number;
   onChange: (v: number) => void;
 }) {
   return (
@@ -122,7 +124,7 @@ export function Slider({
           {unit}
         </span>
       </span>
-      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </label>
   );
 }

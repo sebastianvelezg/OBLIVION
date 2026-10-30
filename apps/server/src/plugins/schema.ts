@@ -11,7 +11,7 @@ const fieldSchema: z.ZodType<Field> = z.lazy(() =>
   z.object({
     key: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/),
     label: text(80),
-    type: z.enum(["string", "text", "url", "number", "boolean", "select", "secret", "list"]),
+    type: z.enum(["string", "text", "url", "number", "boolean", "select", "secret", "list", "widget"]),
     required: z.boolean().optional(),
     default: z.unknown().optional(),
     placeholder: z.string().max(120).optional(),
@@ -21,6 +21,7 @@ const fieldSchema: z.ZodType<Field> = z.lazy(() =>
     max: z.number().optional(),
     itemFields: z.array(fieldSchema).max(10).optional(),
     maxItems: z.number().int().min(1).max(200).optional(),
+    widgetType: z.string().max(80).optional(),
   }),
 );
 
@@ -109,6 +110,7 @@ const leafSchema: z.ZodType<LeafView> = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("media"),
     empty: short.optional(),
+    layout: z.enum(["grid", "row"]).optional(),
     items: z
       .array(
         z.object({

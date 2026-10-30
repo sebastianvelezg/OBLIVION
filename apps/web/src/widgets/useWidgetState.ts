@@ -54,6 +54,12 @@ export function useWidgetState<T>(widget: WidgetDTO, canEdit: boolean) {
     [canEdit, flush],
   );
 
+  // Otro widget (el calendario) puede cambiar este estado: si no hay nada sin guardar aquí, lo seguimos.
+  const incoming = widget.state as T;
+  useEffect(() => {
+    if (pending.current === null) setState((cur) => (cur === incoming ? cur : incoming));
+  }, [incoming]);
+
   useEffect(() => () => void flush(), [flush]);
 
   return { state, update, status, flush };

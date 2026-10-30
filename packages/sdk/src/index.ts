@@ -18,7 +18,9 @@ export type FieldType =
   | "boolean"
   | "select"
   | "secret"
-  | "list";
+  | "list"
+  /** Otro widget de la misma instalación (guarda su id). `widgetType` limita cuáles se ofrecen. */
+  | "widget";
 
 export interface SelectOption {
   value: string;
@@ -42,6 +44,8 @@ export interface Field {
   itemFields?: Field[];
   /** Solo `list`: máximo de elementos (por defecto 50). */
   maxItems?: number;
+  /** Solo `widget`: tipo completo (`core.reminders`) de los widgets que se pueden elegir. */
+  widgetType?: string;
 }
 
 // ───────────────────────────── Vistas declarativas ─────────────────────────
@@ -97,6 +101,11 @@ export interface MessageView {
 export interface MediaView {
   kind: "media";
   empty?: string;
+  /**
+   * `grid` (por defecto) llena el widget de carátulas; `row` las pone en una sola fila que se
+   * desplaza hacia los lados (una fila por biblioteca: películas, series, anime...).
+   */
+  layout?: "grid" | "row";
   items: {
     title: string;
     subtitle?: string;
@@ -293,7 +302,25 @@ export interface WidgetStyle {
   imageDim?: number;
   /** Desenfoque de la imagen, 0–24 px. */
   imageBlur?: number;
+  /**
+   * Escala del contenido en %, 50–200. Sin definir es automática: el contenido crece o encoge
+   * con la tarjeta respecto a su tamaño normal.
+   */
+  scale?: number;
+  /** Tamaño de las piezas interiores (carátulas, cifras, filas). Sin definir, se ajusta solo. */
+  itemSize?: ItemSize;
+  /** Columnas fijas para carátulas, cifras y enlaces (1–8). Sin definir, las que quepan. */
+  columns?: number;
+  /** Relleno interior de la tarjeta (por defecto, el de la densidad elegida). */
+  pad?: CardPad;
+  /** `scroll`: listas y carátulas se desplazan en vez de resumir lo que no cabe en «+N más». */
+  overflow?: "fit" | "scroll";
 }
+
+export const ITEM_SIZES = ["xs", "s", "m", "l", "xl"] as const;
+export type ItemSize = (typeof ITEM_SIZES)[number];
+export const CARD_PADS = ["none", "tight", "normal", "roomy"] as const;
+export type CardPad = (typeof CARD_PADS)[number];
 
 export interface WidgetDTO {
   id: string;

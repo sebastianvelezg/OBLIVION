@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { useBox } from "../lib/box";
+import { ITEM_WIDTH, useViewOptions } from "../lib/options";
 
 interface LinkItem {
   label: string;
@@ -22,6 +23,7 @@ const GAP = 8;
 
 export function LinksWidget({ config }: { config: Record<string, any> }) {
   const box = useBox();
+  const opt = useViewOptions();
   const all: LinkItem[] = Array.isArray(config.items) ? config.items : [];
   const items = all.filter((it) => safeHref(it.url));
   const asList = config.layout === "list";
@@ -36,17 +38,18 @@ export function LinksWidget({ config }: { config: Record<string, any> }) {
   const list = asList && box.h >= 60;
   const inline = strip || list;
   const rowH = inline ? 36 : 78;
-  const minCell = strip ? 120 : list ? (box.wide ? 200 : box.w) : 92;
-  const cols = Math.max(1, Math.floor((box.w + GAP) / (minCell + GAP)));
+  const minCell = strip ? 120 : list ? (box.wide ? 200 : box.w) : opt.itemSize ? Math.max(64, ITEM_WIDTH[opt.itemSize]) : 92;
+  const cols = Math.max(1, Math.min(12, opt.columns ?? Math.floor((box.w + GAP) / (minCell + GAP))));
   const rows = Math.max(1, Math.floor((box.h + GAP) / (rowH + GAP)));
-  const capacity = cols * rows;
+  // Con «desplazar» entran todos; si no, los que caben.
+  const capacity = opt.scroll ? items.length : cols * rows;
   // Si no caben todos, la última celda se reserva para «+N» (salvo que solo quepa una).
   const reserveTile = items.length > capacity && capacity > 1;
   const shown = items.slice(0, reserveTile ? capacity - 1 : capacity);
   const hidden = items.length - shown.length;
 
   return (
-    <ul className="grid content-start" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: GAP }}>
+    <ul className={`grid content-start ${opt.scroll ? "size-full overflow-y-auto [scrollbar-width:thin]" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: GAP }}>
       {shown.map((it, i) => {
         const href = safeHref(it.url)!;
         const glyph = it.icon || it.label.slice(0, 1).toUpperCase();

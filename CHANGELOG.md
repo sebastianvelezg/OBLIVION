@@ -4,6 +4,19 @@ Todos los cambios relevantes se documentan aquí. El formato sigue [Keep a Chang
 
 ## [Sin publicar]
 
+### Añadido
+
+- **El contenido de cada widget crece con la tarjeta.** Antes solo crecía el contenedor; ahora el texto, las carátulas y los márgenes se escalan según lo que estires respecto al tamaño normal del widget (suave: entre 90 % y 140 %). En modo Editar, cada widget lleva un control **− 115 % +** para fijarlo de un clic.
+- **Ajustes del contenido interior** en **Aspecto de este widget** y en `style:` del texto YAML: `scale` (50–200 %), `itemSize` (`xs`–`xl`), `columns` (1–8), `pad` (relleno de la tarjeta) y `overflow` (`fit` o `scroll`). Valen para todos los widgets, también los de plugins.
+- **Jellyfin · Últimos añadidos por filas:** una fila de carátulas por biblioteca o género (películas, series, anime…), con su título, que se desplazan hacia los lados. Nueva vista `media` con `layout: "row"` para plugins.
+- **Calendario con agenda:** los días con recordatorios se marcan con puntos; al tocar un día se ve su agenda y se pueden añadir, marcar y borrar recordatorios (se guardan en los widgets de Recordatorios y se ven al instante en ellos). Pestañas **Día / Mes**. Opciones: mostrar recordatorios y de qué lista. Nuevo tipo de campo `widget` para elegir otro widget del dashboard.
+
+### Cambiado
+
+- **Biblioteca y demás cifras:** ya no dejan un hueco enorme en medio al agrandarlas; reparten las columnas para que el número sea lo más grande posible sin perder ninguna.
+- El calendario y las fechas de los recordatorios usan siempre el español.
+- Los errores de estilo en el texto YAML dicen qué ajuste falla y qué valores admite.
+
 ## [0.3.0] — Diseño personalizable y configuración en texto
 
 ### Añadido

@@ -27,6 +27,14 @@ const connection = [
   },
 ];
 
+const KINDS = [
+  { value: "Movie,Series", label: "Películas y series" },
+  { value: "Movie", label: "Solo películas" },
+  { value: "Series", label: "Solo series" },
+  { value: "Episode", label: "Episodios" },
+  { value: "MusicAlbum", label: "Álbumes" },
+];
+
 /** Opciones de «Últimos añadidos» (las usa el widget suelto y el panel combinado). */
 const latestOptions = [
   {
@@ -34,21 +42,30 @@ const latestOptions = [
     label: "Últimos añadidos: qué mostrar",
     type: "select",
     default: "Movie,Series",
-    options: [
-      { value: "Movie,Series", label: "Películas y series" },
-      { value: "Movie", label: "Solo películas" },
-      { value: "Series", label: "Solo series" },
-      { value: "Episode", label: "Episodios" },
-    ],
+    options: KINDS,
   },
   { key: "limit", label: "Últimos añadidos: cantidad", type: "number", default: 8, min: 1, max: 24 },
+  {
+    key: "rows",
+    label: "Filas por biblioteca",
+    type: "list",
+    maxItems: 6,
+    help: "Opcional. Con una o más filas el widget enseña una fila de carátulas por cada una (p. ej. Películas, Series, Anime) en vez de una sola cuadrícula.",
+    itemFields: [
+      { key: "title", label: "Título de la fila", type: "string", placeholder: "Anime" },
+      { key: "library", label: "Biblioteca de Jellyfin", type: "string", placeholder: "Nombre exacto (vacío = todas)" },
+      { key: "kind", label: "Qué mostrar", type: "select", default: "Movie,Series", options: KINDS },
+      { key: "genre", label: "Género (opcional)", type: "string", placeholder: "Animation" },
+      { key: "limit", label: "Cantidad", type: "number", default: 12, min: 1, max: 30 },
+    ],
+  },
 ];
 
 /** @type {import('@oblivion/sdk').PluginDefinition} */
 const plugin = {
   id: "jellyfin",
   name: "Jellyfin",
-  version: "0.2.0",
+  version: "0.3.0",
   description: "Estado de tu servidor Jellyfin: quién está viendo qué, tamaño de la biblioteca y lo último añadido.",
   author: "Oblivion",
   connection,
@@ -194,10 +211,42 @@ async function library(ctx) {
   return { kind: "stats", items };
 }
 
-async function latest(ctx) {
-  const kind = ["Movie,Series", "Movie", "Series", "Episode"].includes(ctx.config.kind) ? ctx.config.kind : "Movie,Series";
-  const limit = Math.min(24, Math.max(1, Number(ctx.config.limit) || 8));
+const KIND_VALUES = KINDS.map((k) => k.value);
 
+async function latest(ctx) {
+  const rows = Array.isArray(ctx.config.rows) ? ctx.config.rows : [];
+  if (rows.length === 0) {
+    const kind = KIND_VALUES.includes(ctx.config.kind) ? ctx.config.kind : "Movie,Series";
+    const limit = Math.min(24, Math.max(1, Number(ctx.config.limit) || 8));
+    return { kind: "media", empty: "Todavía no hay nada en la biblioteca.", items: await fetchLatest(ctx, { kind, limit }) };
+  }
+
+  // Una fila por entrada; la lista de bibliotecas se pide una sola vez y solo si alguna fila la usa.
+  const folders = rows.some((r) => r.library) ? await libraries(ctx) : [];
+  const sections = await Promise.all(
+    rows.map(async (r, i) => {
+      const title = String(r.title || r.library || r.genre || `Fila ${i + 1}`);
+      const wanted = String(r.library || "").trim();
+      let parentId;
+      if (wanted) {
+        const hit = folders.find((f) => same(f.Name, wanted) || f.Id === wanted);
+        if (!hit) {
+          const names = folders.map((f) => f.Name).filter(Boolean).join(", ");
+          return { title, view: { kind: "message", tone: "warn", text: `No encuentro la biblioteca «${wanted}».${names ? ` Las que hay: ${names}.` : ""}` } };
+        }
+        parentId = hit.Id;
+      }
+      const kind = KIND_VALUES.includes(r.kind) ? r.kind : "Movie,Series";
+      const limit = Math.min(30, Math.max(1, Number(r.limit) || 12));
+      const items = await fetchLatest(ctx, { kind, limit, parentId, genre: String(r.genre || "").trim() });
+      return { title, view: { kind: "media", layout: "row", empty: "Nada nuevo en esta fila.", items } };
+    }),
+  );
+  return { kind: "sections", sections };
+}
+
+/** Lo último añadido (ordenado por fecha), opcionalmente de una biblioteca y/o un género. */
+async function fetchLatest(ctx, { kind, limit, parentId, genre }) {
   const q = new URLSearchParams({
     SortBy: "DateCreated",
     SortOrder: "Descending",
@@ -208,24 +257,32 @@ async function latest(ctx) {
     EnableImageTypes: "Primary",
     ImageTypeLimit: "1",
   });
+  if (parentId && validId(parentId)) q.set("ParentId", parentId);
+  if (genre) q.set("Genres", genre.slice(0, 80));
   const data = await get(ctx, `/Items?${q}`);
   const items = Array.isArray(data.Items) ? data.Items : [];
 
-  return {
-    kind: "media",
-    empty: "Todavía no hay nada en la biblioteca.",
-    items: items.map((it) => {
-      // Un episodio no suele tener carátula propia: usamos la de su serie.
-      const imageId = it.ImageTags?.Primary ? it.Id : it.SeriesId || it.ParentId || undefined;
-      return {
-        title: it.SeriesName || it.Name || "Sin título",
-        subtitle: it.Type === "Episode" ? [episodeLabel(it), it.Name].filter(Boolean).join(" · ") : undefined,
-        badge: it.ProductionYear ? String(it.ProductionYear) : undefined,
-        image: validId(imageId) ? imageId : undefined,
-      };
-    }),
-  };
+  return items.map((it) => {
+    // Un episodio no suele tener carátula propia: usamos la de su serie.
+    const imageId = it.ImageTags?.Primary ? it.Id : it.SeriesId || it.ParentId || undefined;
+    return {
+      title: it.SeriesName || it.Name || "Sin título",
+      subtitle: it.Type === "Episode" ? [episodeLabel(it), it.Name].filter(Boolean).join(" · ") : undefined,
+      badge: it.ProductionYear ? String(it.ProductionYear) : undefined,
+      image: validId(imageId) ? imageId : undefined,
+    };
+  });
 }
+
+/** Las bibliotecas del servidor (películas, series, anime...). */
+async function libraries(ctx) {
+  const data = await get(ctx, "/Library/MediaFolders");
+  return (Array.isArray(data.Items) ? data.Items : []).filter((f) => validId(f.Id));
+}
+
+/** Compara nombres sin importar mayúsculas ni tildes. */
+const same = (a, b) => fold(a) === fold(b);
+const fold = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 
 // Carátula servida por el dashboard (el navegador nunca llama a Jellyfin).
 async function image(ctx, key) {

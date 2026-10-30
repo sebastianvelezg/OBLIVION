@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { PageDTO, WidgetDTO, WidgetStyle } from "@oblivion/sdk";
-import { GRID_COLUMNS } from "@oblivion/sdk";
+import { CARD_PADS, GRID_COLUMNS, ITEM_SIZES } from "@oblivion/sdk";
 import fs from "node:fs";
 import path from "node:path";
 import { requireAdmin, requireUser, type AppEnv } from "../auth.js";
@@ -43,14 +43,42 @@ const styleSchema = z
     image: z.string().regex(BACKGROUND_ID_PATTERN).nullable().optional(),
     imageDim: z.number().int().min(0).max(85).nullable().optional(),
     imageBlur: z.number().int().min(0).max(24).nullable().optional(),
+    scale: z.number().int().min(50).max(200).nullable().optional(),
+    itemSize: z.enum(ITEM_SIZES).nullable().optional(),
+    columns: z.number().int().min(1).max(8).nullable().optional(),
+    pad: z.enum(CARD_PADS).nullable().optional(),
+    overflow: z.enum(["fit", "scroll"]).nullable().optional(),
   })
   .strict();
+
+/** Qué admite cada ajuste de estilo, para decírselo a quien escribe el YAML. */
+const STYLE_HELP: Record<string, string> = {
+  titleMode: "auto, show o hide",
+  accent: "un color #rrggbb",
+  opacity: "un número entero de 10 a 100",
+  link: "una dirección http(s)",
+  bare: "true o false",
+  image: "el id de una imagen subida",
+  imageDim: "un número entero de 0 a 85",
+  imageBlur: "un número entero de 0 a 24",
+  scale: "un porcentaje entero de 50 a 200 (sin definir = automática)",
+  itemSize: "xs, s, m, l o xl",
+  columns: "un número entero de 1 a 8",
+  pad: "none, tight, normal o roomy",
+  overflow: "fit o scroll",
+};
 
 /** Valida el estilo que llega del navegador y lo deja sin vacíos (lo que se guarda). */
 export function buildStyle(input: unknown): WidgetStyle {
   const parsed = styleSchema.safeParse(input ?? {});
-  if (!parsed.success) throw new ConfigError("Estilo inválido");
-  const { titleMode, accent, opacity, link, bare, image, imageDim, imageBlur } = parsed.data;
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const key = issue?.code === "unrecognized_keys" ? (issue.keys[0] ?? "") : String(issue?.path[0] ?? "");
+    if (issue?.code === "unrecognized_keys") throw new ConfigError(`Estilo: «${key}» no es un ajuste conocido (hay ${Object.keys(STYLE_HELP).join(", ")})`);
+    throw new ConfigError(STYLE_HELP[key] ? `Estilo: «${key}» debe ser ${STYLE_HELP[key]}` : "Estilo inválido");
+  }
+  const { titleMode, accent, opacity, link, bare, image, imageDim, imageBlur, scale, itemSize, columns, pad, overflow } =
+    parsed.data;
   const out: WidgetStyle = {};
   if (titleMode && titleMode !== "auto") out.titleMode = titleMode;
   if (accent) out.accent = accent.toLowerCase();
@@ -62,6 +90,12 @@ export function buildStyle(input: unknown): WidgetStyle {
     if (imageDim != null) out.imageDim = imageDim;
     if (imageBlur != null) out.imageBlur = imageBlur;
   }
+  // La escala 100 % es «sin escala»: se guarda como lo que es, no como «automática».
+  if (scale != null) out.scale = scale;
+  if (itemSize) out.itemSize = itemSize;
+  if (columns != null) out.columns = columns;
+  if (pad && pad !== "normal") out.pad = pad;
+  if (overflow === "scroll") out.overflow = overflow;
   return out;
 }
 

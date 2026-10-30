@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import type { Field as FieldDef } from "@oblivion/sdk";
+import type { Field as FieldDef, PageDTO } from "@oblivion/sdk";
+import { api } from "../api";
 import { Field } from "./ui";
 
 type Values = Record<string, any>;
@@ -66,6 +68,9 @@ function FieldInput({
           />
         </label>
       );
+
+    case "widget":
+      return <WidgetPicker field={f} label={label} value={value} onChange={onChange} />;
 
     case "select":
       return (
@@ -189,6 +194,30 @@ function FieldInput({
         </Field>
       );
   }
+}
+
+/** Elige otro widget del dashboard (de cualquier página), por ejemplo la lista de recordatorios de un calendario. */
+function WidgetPicker({ field: f, label, value, onChange }: { field: FieldDef; label: string; value: any; onChange: (v: unknown) => void }) {
+  const q = useQuery({ queryKey: ["pages"], queryFn: () => api.get<{ pages: PageDTO[] }>("/pages"), staleTime: 30_000 });
+  const options = (q.data?.pages ?? []).flatMap((p) =>
+    p.widgets.filter((w) => !f.widgetType || w.type === f.widgetType).map((w) => ({ id: w.id, label: `${w.title || w.type.replace(/^core\./, "")} · ${p.title}` })),
+  );
+  const current = typeof value === "string" ? value : "";
+  // Un id que ya no existe se conserva visible para poder cambiarlo.
+  const missing = current && !options.some((o) => o.id === current);
+  return (
+    <Field label={label} help={f.help}>
+      <select className="input" value={current} onChange={(e) => onChange(e.target.value || undefined)}>
+        <option value="">Automático (todas)</option>
+        {missing && <option value={current}>{current} (no existe)</option>}
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
 }
 
 /** Valores iniciales: los `default` de cada campo. */

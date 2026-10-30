@@ -55,7 +55,7 @@ Cómo hacer copia de seguridad: [Instalación → Copia de seguridad](installati
 | **Recordatorios** | Lista de tareas con fecha y hora opcionales. Marca vencidos y de hoy, y muestra un aviso cuando llega la hora (mientras la página esté abierta). |
 | **Enlaces** | Atajos a tus servicios, en cuadrícula o lista, con icono emoji. |
 | **Reloj** | Hora y fecha, con zona horaria, formato 12/24 h y segundos opcionales. |
-| **Calendario** | Mes con el día de hoy resaltado; la semana empieza en lunes o domingo. |
+| **Calendario** | Mes con los días que tienen recordatorios marcados. Toca un día para ver su agenda y añadir cosas (se guardan en tus widgets de **Recordatorios**); la pestaña **Mes** lista todo el mes. Con espacio, la agenda va al lado o debajo; si no, ocupa el widget y una flecha vuelve al mes. |
 | **Calculadora** | Calculadora con teclado. |
 | **Página web** | Muestra otra página dentro del dashboard (si el sitio permite ser embebido). |
 
@@ -71,6 +71,27 @@ En modo **Editar** cada widget lleva una barra sobre su borde superior:
 - La barra de abajo cambia entre **Compacto** (los widgets se pegan arriba sin huecos) y **Libre** (cada uno se queda donde lo sueltes).
 
 El contenido se adapta solo al espacio: un reloj pequeño enseña la hora; uno grande, también la fecha, la zona y el avance del año. En pantallas más estrechas los widgets pasan a 2–3 columnas y, en el móvil, a una.
+
+### Contenido interior
+
+Además de estirar la tarjeta, puedes decidir **cuánto crece lo de dentro**. Por defecto el contenido **se escala solo**: al hacer un widget más grande que su tamaño normal (el «M»), el texto, las carátulas y los márgenes crecen con él; al encogerlo, se ajustan un poco. En modo **Editar** cada widget lleva un control **− 115 % +** para cambiarlo de un clic (pulsa el porcentaje para volver a automático). Los widgets de enlaces no crecen solos (para que quepan todos), y la página web y la imagen se adaptan por sí mismas.
+
+En **Aspecto de este widget → Contenido interior** (o en `style:` del texto) hay más ajustes:
+
+| Ajuste | Qué hace |
+|---|---|
+| `scale` | Escala fija del contenido en %, de 50 a 200. Sin definir, es automática. `scale: 100` lo deja como estaba. |
+| `itemSize` | Tamaño de las piezas: `xs`, `s`, `m`, `l` o `xl`. En carátulas es el ancho de cada una; en cifras, el tamaño del número; en listas, el del texto. Sin definir, se ajusta solo. |
+| `columns` | Columnas fijas (1–8) para carátulas, cifras y enlaces. Sin definir, las que quepan. |
+| `pad` | Relleno de la tarjeta: `none`, `tight`, `normal` (por defecto) o `roomy`. |
+| `overflow` | `fit` (por defecto) resume lo que no cabe en «+N más»; `scroll` lo deja desplazable. |
+
+```yaml
+- id: biblioteca
+  type: jellyfin.library
+  layout: { x: 8, y: 0, w: 4, h: 7 }
+  style: { columns: 2, itemSize: l }       # dos columnas de cifras grandes
+```
 
 ### Aspecto de cada widget
 
@@ -145,7 +166,7 @@ pages:
         type: jellyfin.latest
         connection: jellyfin                 # id de una conexión de conexiones.yml
         config: { limit: 8 }
-        style: { accent: "#e0793f", bare: false }
+        style: { accent: "#e0793f", bare: false, scale: 110 }
       - type: core.notes                     # sin id: se crea uno; sin layout: primer hueco libre
         state: { text: "Comprar café" }
   - title: Medios

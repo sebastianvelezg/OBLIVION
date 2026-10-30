@@ -1,4 +1,4 @@
-import { createContext, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
  * Cada widget se dibuja según el espacio REAL que tiene (no según una opción suelta):
@@ -38,18 +38,28 @@ export const atLeast = (b: Box, t: Tier) => TIER_ORDER.indexOf(b.tier) >= TIER_O
 const BoxContext = createContext<Box>(makeBox(320, 240));
 export const useBox = () => useContext(BoxContext);
 
-/** Recuadro que mide su propio tamaño y lo reparte entre sus hijos. */
+/** El navegador sabe escalar un bloque entero con `zoom` (todos los actuales; Firefox desde la 126). */
+const ZOOM_OK = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("zoom", "1.2");
+
+/**
+ * Recuadro que mide su propio tamaño y lo reparte entre sus hijos. Con `scale` ≠ 1 el contenido
+ * se dibuja en un espacio `scale` veces menor y se amplía después: así todo (texto, carátulas,
+ * márgenes) crece a la vez y las vistas siguen calculando con el hueco que de verdad tienen.
+ */
 export function Measured({
   children,
   className,
   style,
+  scale = 1,
 }: {
   children: (box: Box) => ReactNode;
   className?: string;
   style?: CSSProperties;
+  scale?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState<Box>(() => makeBox(0, 0));
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const k = ZOOM_OK && scale > 0 ? scale : 1;
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -57,7 +67,7 @@ export function Measured({
     const read = () => {
       const w = Math.round(el.clientWidth);
       const h = Math.round(el.clientHeight);
-      setBox((b) => (b.w === w && b.h === h ? b : makeBox(w, h)));
+      setSize((b) => (b.w === w && b.h === h ? b : { w, h }));
     };
     read();
     const ro = new ResizeObserver(read);
@@ -65,9 +75,21 @@ export function Measured({
     return () => ro.disconnect();
   }, []);
 
+  const w = Math.round(size.w / k);
+  const h = Math.round(size.h / k);
+  const box = useMemo(() => makeBox(w, h), [w, h]);
+
   return (
     <div ref={ref} className={className} style={style}>
-      <BoxContext.Provider value={box}>{box.w > 0 && box.h > 0 ? children(box) : null}</BoxContext.Provider>
+      <BoxContext.Provider value={box}>
+        {w > 0 && h > 0 ? (
+          k === 1 ? (
+            children(box)
+          ) : (
+            <div style={{ zoom: k, width: w, height: h }}>{children(box)}</div>
+          )
+        ) : null}
+      </BoxContext.Provider>
     </div>
   );
 }
