@@ -19,6 +19,6 @@
     "typecheck": "npm run typecheck -w @oblivion/sdk && npm run typecheck -w @oblivion/server && npm run typecheck -w @oblivion/web"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^10.0.6"
   }
 }
