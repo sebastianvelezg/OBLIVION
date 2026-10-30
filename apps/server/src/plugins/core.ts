@@ -8,7 +8,7 @@ export const corePlugin = definePlugin({
   id: "core",
   name: "Básicos",
   version: "0.2.0",
-  description: "Widgets incluidos: reloj, calendario, buscador, saludo, calculadora, enlaces y páginas embebidas.",
+  description: "Widgets incluidos: reloj, calendario, buscador, saludo, calculadora, notas, enlaces, imágenes y páginas embebidas.",
   widgets: [
     {
       type: "clock",
@@ -18,6 +18,7 @@ export const corePlugin = definePlugin({
       component: "clock",
       defaultSize: { w: 3, h: 3 },
       minSize: { w: 2, h: 2 },
+      sizes: { s: { w: 2, h: 2 }, m: { w: 3, h: 3 }, l: { w: 4, h: 4 }, xl: { w: 6, h: 5 } },
       config: [
         {
           key: "timezone",
@@ -38,6 +39,7 @@ export const corePlugin = definePlugin({
       component: "calendar",
       defaultSize: { w: 3, h: 6 },
       minSize: { w: 3, h: 5 },
+      sizes: { s: { w: 3, h: 4 }, m: { w: 3, h: 6 }, l: { w: 4, h: 7 }, xl: { w: 6, h: 8 } },
       config: [
         {
           key: "weekStart",
@@ -59,6 +61,7 @@ export const corePlugin = definePlugin({
       component: "search",
       defaultSize: { w: 4, h: 2 },
       minSize: { w: 2, h: 2 },
+      sizes: { s: { w: 3, h: 2 }, m: { w: 4, h: 2 }, l: { w: 6, h: 3 }, xl: { w: 8, h: 3 } },
       config: [
         {
           key: "engine",
@@ -95,6 +98,7 @@ export const corePlugin = definePlugin({
       component: "greeting",
       defaultSize: { w: 4, h: 2 },
       minSize: { w: 3, h: 2 },
+      sizes: { s: { w: 3, h: 2 }, m: { w: 4, h: 2 }, l: { w: 6, h: 3 }, xl: { w: 8, h: 4 } },
       config: [
         { key: "name", label: "Nombre", type: "string", placeholder: "Sebastián" },
         { key: "date", label: "Mostrar la fecha", type: "boolean", default: true },
@@ -108,6 +112,7 @@ export const corePlugin = definePlugin({
       component: "calculator",
       defaultSize: { w: 3, h: 6 },
       minSize: { w: 3, h: 5 },
+      sizes: { s: { w: 3, h: 5 }, m: { w: 3, h: 6 }, l: { w: 4, h: 8 }, xl: { w: 5, h: 9 } },
       config: [],
     },
     {
@@ -118,6 +123,7 @@ export const corePlugin = definePlugin({
       component: "notes",
       defaultSize: { w: 4, h: 6 },
       minSize: { w: 2, h: 3 },
+      sizes: { s: { w: 3, h: 3 }, m: { w: 4, h: 6 }, l: { w: 6, h: 8 }, xl: { w: 8, h: 10 } },
       config: [
         {
           key: "size",
@@ -141,6 +147,7 @@ export const corePlugin = definePlugin({
       component: "reminders",
       defaultSize: { w: 4, h: 6 },
       minSize: { w: 3, h: 3 },
+      sizes: { s: { w: 3, h: 4 }, m: { w: 4, h: 6 }, l: { w: 5, h: 8 }, xl: { w: 6, h: 10 } },
       config: [
         { key: "showDone", label: "Mostrar las completadas", type: "boolean", default: true },
       ],
@@ -153,6 +160,7 @@ export const corePlugin = definePlugin({
       component: "links",
       defaultSize: { w: 4, h: 5 },
       minSize: { w: 2, h: 2 },
+      sizes: { s: { w: 3, h: 2 }, m: { w: 4, h: 5 }, l: { w: 6, h: 6 }, xl: { w: 12, h: 4 } },
       config: [
         {
           key: "layout",
@@ -179,6 +187,29 @@ export const corePlugin = definePlugin({
       ],
     },
     {
+      type: "image",
+      name: "Imagen",
+      description: "Una foto o ilustración tuya, con un texto opcional. La imagen se sube desde «Aspecto de este widget».",
+      icon: "🖼",
+      component: "image",
+      defaultSize: { w: 4, h: 4 },
+      minSize: { w: 1, h: 1 },
+      sizes: { s: { w: 2, h: 2 }, m: { w: 4, h: 4 }, l: { w: 6, h: 6 }, xl: { w: 12, h: 6 } },
+      config: [
+        { key: "caption", label: "Texto sobre la imagen", type: "string", placeholder: "Opcional" },
+        {
+          key: "fit",
+          label: "Ajuste",
+          type: "select",
+          default: "cover",
+          options: [
+            { value: "cover", label: "Llenar la tarjeta (recorta)" },
+            { value: "contain", label: "Mostrar entera" },
+          ],
+        },
+      ],
+    },
+    {
       type: "embed",
       name: "Página web",
       description: "Muestra otra página dentro del dashboard (si el sitio lo permite).",
@@ -186,6 +217,7 @@ export const corePlugin = definePlugin({
       component: "embed",
       defaultSize: { w: 6, h: 8 },
       minSize: { w: 3, h: 4 },
+      sizes: { s: { w: 4, h: 5 }, m: { w: 6, h: 8 }, l: { w: 8, h: 10 }, xl: { w: 12, h: 12 } },
       config: [
         {
           key: "url",

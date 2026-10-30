@@ -33,6 +33,7 @@ export const widgetDefSchema = z.object({
   icon: z.string().max(8).optional(),
   defaultSize: size,
   minSize: size.optional(),
+  sizes: z.object({ s: size.optional(), m: size.optional(), l: size.optional(), xl: size.optional() }).optional(),
   config: z.array(fieldSchema).max(30),
   refreshSeconds: z.number().int().min(5).max(86400).optional(),
   component: z.string().max(40).optional(),
@@ -95,6 +96,7 @@ const leafSchema: z.ZodType<LeafView> = z.discriminatedUnion("kind", [
         }),
       )
       .max(50),
+    scroll: z.boolean().optional(),
   }),
   z.object({ kind: z.literal("message"), tone: tone.optional(), text: z.string().max(500) }),
   z.object({

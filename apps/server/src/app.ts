@@ -9,6 +9,7 @@ import type { DB } from "./db.js";
 import type { PluginRegistry } from "./plugins/registry.js";
 import type { WidgetRuntime } from "./plugins/runtime.js";
 import { authRoutes } from "./routes/auth.js";
+import { configRoutes } from "./routes/config.js";
 import { connectionRoutes } from "./routes/connections.js";
 import { pageRoutes } from "./routes/pages.js";
 import { appearanceRoutes, MAX_BACKGROUND_BYTES } from "./routes/appearance.js";
@@ -89,7 +90,12 @@ export function createApp(deps: AppDeps) {
   const tooBig = (c: Context) => c.json({ error: "Cuerpo demasiado grande" }, 413);
   const smallBody = bodyLimit({ maxSize: 256 * 1024, onError: tooBig });
   const imageBody = bodyLimit({ maxSize: MAX_BACKGROUND_BYTES + 1024, onError: tooBig });
-  api.use("*", (c, next) => (c.req.path === "/api/appearance/background" ? imageBody(c, next) : smallBody(c, next)));
+  // Los documentos de configuración en texto pueden ser largos (notas, muchos widgets).
+  const docsBody = bodyLimit({ maxSize: 1024 * 1024, onError: tooBig });
+  api.use("*", (c, next) => {
+    if (c.req.path === "/api/appearance/background") return imageBody(c, next);
+    return (c.req.path.startsWith("/api/config") ? docsBody : smallBody)(c, next);
+  });
   api.use("*", authenticate(db, config));
   api.use("*", async (c, next) => {
     c.header("Cache-Control", "no-store");
@@ -104,6 +110,7 @@ export function createApp(deps: AppDeps) {
   api.route("/appearance", appearanceRoutes(deps));
   api.route("/users", userRoutes(deps));
   api.route("/", connectionRoutes(deps));
+  api.route("/", configRoutes(deps));
   api.route("/", pageRoutes(deps));
   api.notFound((c) => c.json({ error: "No encontrado" }, 404));
 

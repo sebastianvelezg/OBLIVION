@@ -1,6 +1,8 @@
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
+import "@fontsource-variable/instrument-sans";
 import "@fontsource-variable/newsreader";
+import "@fontsource/instrument-serif";
 import { DEFAULT_APPEARANCE } from "@oblivion/sdk";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";

@@ -4,6 +4,28 @@ Todos los cambios relevantes se documentan aquí. El formato sigue [Keep a Chang
 
 ## [Sin publicar]
 
+## [0.3.0] — Diseño personalizable y configuración en texto
+
+### Añadido
+
+- **Configuración en texto (YAML):** en **Ajustes → Texto** las conexiones, las páginas con sus widgets (y su posición y tamaño) y la apariencia son tres documentos que se editan como texto, se descargan o se cargan desde un archivo. Se revisan mientras escribes (errores con su línea), enseñan qué cambiará y se aplican **todo o nada**. Los secretos nunca salen en claro (`••••••••` conserva el guardado) y pueden venir de variables de entorno con `{{OBLIVION_VAR_NOMBRE}}` (solo en campos secretos). Ver [guía](docs/configuration.md#configuración-en-texto-yaml).
+- **Cada widget se adapta a su tamaño real.** Al agrandarlo o encogerlo, el contenido pasa solo de la versión compacta a la mediana o a la grande: el reloj enseña solo la hora, luego la fecha y al final el avance del año; el clima suma humedad y pronóstico; el calendario cambia de la semana en curso al mes entero; los enlaces pasan de tira a cuadrícula; las cifras, listas y carátulas reparten el espacio **sin barra de desplazamiento** (lo que no cabe se resume en «+N más»). Los titulares RSS, ntfy y Gotify sí se desplazan.
+- **Tamaños rápidos S · M · L · XL** en cada widget al editar, y selector de **tamaño inicial** al añadirlo. Los plugins pueden declarar los suyos con `sizes` ([guía de plugins](docs/plugins.md#tamaños-y-adaptación)).
+- **Modo edición renovado:** la barra del widget cabalga sobre su borde (ya no tapa el contenido), todo el widget se arrastra, **se redimensiona desde los ocho bordes y esquinas**, hay guías de la grilla, indicador del tamaño (4 × 5) mientras estiras, **duplicar widget** y una barra flotante con *Widget*, *Compacto/Libre* y *Listo*. `Esc` sale del modo edición.
+- **Disposición Libre:** además de «Compacto» (los widgets se pegan arriba), cada widget se queda exactamente donde lo sueltes.
+- **Widget «Imagen»** y **imagen de fondo por widget** (con oscurecimiento y desenfoque), y **«Sin tarjeta»** para poner reloj, saludo o buscador directamente sobre el fondo.
+- **Catálogo de widgets con búsqueda**, ordenado por lo que ya tienes conectado, con iconos de línea en lugar de emojis.
+- **Estado de las conexiones de un vistazo:** al abrir **Ajustes → Conexiones** cada una se prueba sola y muestra un punto verde/rojo con el motivo; los widgets con error ofrecen «Reintentar».
+- **Diseño propio, menos «de plantilla»:** nuevos estilos **Taller** (por defecto), **Bento**, **Papel** y **Fotografía**; paletas **Arena** y **Tinta**; tipografía **Humanista** (Instrument Sans + Instrument Serif para cifras y títulos); grano fino sobre el fondo; títulos de widget en minúscula en vez de mayúsculas espaciadas.
+- En pantallas medianas y móviles los widgets **fluyen en 1–3 columnas** conservando su proporción (antes se apilaban todos en una).
+
+### Cambiado
+
+- **Ids legibles:** las páginas, conexiones y widgets pasan de UUID a ids cortos (`inicio`, `jellyfin`, `reloj-2`) para poder escribirlos en los documentos de texto. Una migración automática convierte los que ya tienes sin tocar nada más; lo nuevo se crea ya con ids legibles.
+- El aspecto por defecto de las instalaciones **nuevas** es ahora *Taller* (paleta Arena, acento terracota, tarjetas sólidas). **Tu apariencia guardada no cambia.**
+- Las cifras, listas y métricas ya no se pintan como bloques rellenos del color de acento: son tipografía y líneas finas.
+- `ListView` admite `scroll: true` y `WidgetDefinition` admite `sizes`.
+
 ## [0.2.0] — Conexiones, 50+ integraciones y más personalización
 
 ### Añadido
@@ -66,6 +88,7 @@ Primera versión pública (alfa).
 - **Docker:** imagen multiplataforma (amd64 y arm64) que corre sin root, con sistema de archivos de solo lectura y sin capacidades de Linux.
 - Documentación de instalación, configuración, integraciones, plugins, seguridad y desarrollo.
 
-[Sin publicar]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.2.0...HEAD
+[Sin publicar]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sebastianvelezg/OBLIVION/releases/tag/v0.1.0

@@ -107,6 +107,22 @@ export default {
 
 Las claves de `connection` no pueden repetirse en el `config` de ningún widget (el plugin se rechaza). La red sigue igual de restringida: `ctx.http` llega a los campos `url` de la conexión. Si tu plugin no declara `connection`, todo funciona como antes y cada widget guarda su configuración.
 
+### Tamaños y adaptación
+
+La interfaz dibuja tus vistas según el espacio que tenga el widget en ese momento: una `metric` pequeña enseña solo el valor; con más alto añade el texto, las cifras y el pronóstico. Una `list` o una `stats` muestran las filas que caben (el resto se resume en «+N más») para que el widget no necesite barra de desplazamiento. Tú solo declaras tamaños razonables:
+
+```js
+defaultSize: { w: 4, h: 5 },                 // «M»: el tamaño al añadirlo
+minSize: { w: 3, h: 2 },
+sizes: {                                     // opcional: los botones S · M · L · XL
+  s: { w: 3, h: 3 },
+  l: { w: 6, h: 7 },
+  xl: { w: 8, h: 9 },
+},
+```
+
+Los tamaños que no declares se deducen de `defaultSize` (sin salirse de las 12 columnas ni bajar de `minSize`). Si tu lista es de titulares, registros o mensajes que conviene recorrer, devuelve `scroll: true` en la vista `list` para que se pueda desplazar en vez de resumirse.
+
 ### Código compartido entre plugins
 
 Un plugin puede importar módulos de otra carpeta con una ruta relativa. Los plugins de la familia *arr lo hacen con [`plugins/_shared/arr.mjs`](../plugins/_shared/arr.mjs) (`import { arrGet } from "../_shared/arr.mjs"`). Esa carpeta no tiene `plugin.mjs`, así que Oblivion no la carga como plugin.

@@ -213,6 +213,20 @@ export function AppearancePanel({ onClose }: { onClose: () => void }) {
 
         <Section title="Disposición y letra">
           <div>
+            <span className="label">Al mover widgets</span>
+            <Segmented
+              value={a.layout.free ? "free" : "compact"}
+              onChange={(v) => update({ ...a, layout: { free: v === "free" } })}
+              options={[
+                { value: "compact", label: "Compacto" },
+                { value: "free", label: "Libre" },
+              ]}
+            />
+            <p className="mt-1.5 text-[11px] leading-snug text-muted">
+              Compacto pega los widgets arriba sin dejar huecos. Libre los deja exactamente donde los sueltes.
+            </p>
+          </div>
+          <div>
             <span className="label">Densidad</span>
             <Segmented
               value={a.density}

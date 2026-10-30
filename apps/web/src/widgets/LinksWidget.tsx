@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { useBox } from "../lib/box";
 
 interface LinkItem {
   label: string;
@@ -17,39 +18,73 @@ export function safeHref(url: unknown): string | null {
   }
 }
 
+const GAP = 8;
+
 export function LinksWidget({ config }: { config: Record<string, any> }) {
-  const items: LinkItem[] = Array.isArray(config.items) ? config.items : [];
-  const list = config.layout === "list";
+  const box = useBox();
+  const all: LinkItem[] = Array.isArray(config.items) ? config.items : [];
+  const items = all.filter((it) => safeHref(it.url));
+  const asList = config.layout === "list";
   const newTab = config.newTab !== false;
 
   if (items.length === 0) {
     return <p className="text-sm text-muted">Aún no hay enlaces. Edita el widget para añadirlos.</p>;
   }
 
+  // Tres formas según el espacio: tiras (muy bajo), lista, o cuadrícula de iconos grandes.
+  const strip = !asList && box.h < 92;
+  const list = asList && box.h >= 60;
+  const inline = strip || list;
+  const rowH = inline ? 36 : 78;
+  const minCell = strip ? 120 : list ? (box.wide ? 200 : box.w) : 92;
+  const cols = Math.max(1, Math.floor((box.w + GAP) / (minCell + GAP)));
+  const rows = Math.max(1, Math.floor((box.h + GAP) / (rowH + GAP)));
+  const capacity = cols * rows;
+  // Si no caben todos, la última celda se reserva para «+N» (salvo que solo quepa una).
+  const reserveTile = items.length > capacity && capacity > 1;
+  const shown = items.slice(0, reserveTile ? capacity - 1 : capacity);
+  const hidden = items.length - shown.length;
+
   return (
-    <ul className={list ? "space-y-1" : "grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2"}>
-      {items.map((it, i) => {
-        const href = safeHref(it.url);
-        if (!href) return null;
+    <ul className="grid content-start" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: GAP }}>
+      {shown.map((it, i) => {
+        const href = safeHref(it.url)!;
+        const glyph = it.icon || it.label.slice(0, 1).toUpperCase();
         return (
-          <li key={i}>
+          <li key={i} className="min-w-0">
             <a
               href={href}
               target={newTab ? "_blank" : undefined}
               rel="noopener noreferrer"
-              className={`group flex items-center gap-2.5 rounded-xl bg-accent-soft px-3 py-2.5 transition-all hover:brightness-125 hover:shadow-md ${
-                list ? "" : "flex-col py-4 text-center"
+              title={`${it.label} · ${href}`}
+              style={{ height: rowH }}
+              className={`group flex min-w-0 items-center rounded-xl border border-line transition-colors hover:border-accent hover:bg-accent-soft ${
+                inline ? "gap-2.5 px-3" : "flex-col justify-center gap-1 px-2 text-center"
               }`}
             >
-              <span className={list ? "text-lg" : "text-2xl"} aria-hidden>
-                {it.icon || it.label.slice(0, 1).toUpperCase()}
+              <span
+                className={`${inline ? "text-base" : "text-2xl"} grid shrink-0 place-items-center leading-none ${it.icon ? "" : "display text-accent-text"}`}
+                aria-hidden
+              >
+                {glyph}
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{it.label}</span>
-              {list && <ExternalLink size={14} className="text-muted opacity-0 group-hover:opacity-100" />}
+              <span className={`min-w-0 text-sm font-medium ${inline ? "flex-1 truncate" : "w-full truncate"}`}>{it.label}</span>
+              {list && <ExternalLink size={13} className="shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100" />}
             </a>
           </li>
         );
       })}
+      {reserveTile && hidden > 0 && (
+        <li className="min-w-0">
+          <span
+            style={{ height: rowH }}
+            className="grid place-items-center rounded-xl border border-dashed border-line text-xs text-muted"
+            title={`${hidden} enlaces más: agranda el widget`}
+          >
+            +{hidden}
+          </span>
+        </li>
+      )}
     </ul>
   );
 }

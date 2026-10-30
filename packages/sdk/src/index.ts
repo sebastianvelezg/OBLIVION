@@ -80,6 +80,11 @@ export interface ListView {
     /** Enlace `http(s)` que abre el título en otra pestaña (titulares de un feed, etc.). */
     href?: string;
   }[];
+  /**
+   * La lista puede desplazarse dentro del widget (titulares de un feed, registros...).
+   * Sin esto, el widget enseña solo las filas que caben y resume el resto en «+N más».
+   */
+  scroll?: boolean;
 }
 
 export interface MessageView {
@@ -174,6 +179,9 @@ export interface PluginContext {
 
 // ───────────────────────────── Definición ──────────────────────────────────
 
+/** Tamaños rápidos de un widget: compacto, medio, grande y extra. */
+export type SizeId = "s" | "m" | "l" | "xl";
+
 export interface WidgetDefinition {
   /** Identificador dentro del plugin: `[a-z0-9-]`. */
   type: string;
@@ -184,6 +192,11 @@ export interface WidgetDefinition {
   /** Tamaño por defecto en celdas (la grilla tiene 12 columnas). */
   defaultSize: { w: number; h: number };
   minSize?: { w: number; h: number };
+  /**
+   * Tamaños rápidos (compacto, medio, grande, extra) en celdas. Los que falten se calculan a
+   * partir de `defaultSize`, que es el «medio».
+   */
+  sizes?: Partial<Record<SizeId, { w: number; h: number }>>;
   config: Field[];
   /** Cada cuántos segundos refrescar el dato (mín. 5). Solo widgets con `load`. */
   refreshSeconds?: number;
@@ -251,6 +264,8 @@ export interface CatalogWidget {
   icon?: string;
   defaultSize: { w: number; h: number };
   minSize: { w: number; h: number };
+  /** Tamaños rápidos que declara el widget (los demás se deducen de `defaultSize`). */
+  sizes?: Partial<Record<SizeId, { w: number; h: number }>>;
   config: Field[];
   /** Campos de la conexión del plugin (vacío si el plugin no usa conexiones). */
   connection: Field[];
@@ -270,6 +285,14 @@ export interface WidgetStyle {
   opacity?: number;
   /** Dirección que abre el título (por defecto, la de la conexión). */
   link?: string;
+  /** Sin tarjeta: el contenido va directamente sobre el fondo (relojes, saludos, buscadores). */
+  bare?: boolean;
+  /** Imagen de fondo de la tarjeta (`<hash>.<ext>`, subida desde el propio widget). */
+  image?: string;
+  /** Oscurecimiento de la imagen, 0–85 %. */
+  imageDim?: number;
+  /** Desenfoque de la imagen, 0–24 px. */
+  imageBlur?: number;
 }
 
 export interface WidgetDTO {
@@ -316,7 +339,7 @@ export interface PageDTO {
 
 // ───────────────────────────── Apariencia ──────────────────────────────────
 
-export const PALETTE_IDS = ["midnight", "graphite", "ocean", "forest", "plum", "ember"] as const;
+export const PALETTE_IDS = ["midnight", "graphite", "ocean", "forest", "plum", "ember", "sand", "ink"] as const;
 export type PaletteId = (typeof PALETTE_IDS)[number];
 
 export type CardStyle = "glass" | "solid" | "outline" | "flat" | "neon" | "brutal";
@@ -327,8 +350,13 @@ export interface Appearance {
   palette: PaletteId;
   /** `#rrggbb` */
   accent: string;
-  font: "sans" | "mono" | "serif";
+  font: "sans" | "mono" | "serif" | "humanist";
   density: "compact" | "comfortable" | "spacious";
+  /** Cómo se colocan los widgets al moverlos. */
+  layout: {
+    /** `false`: se pegan arriba sin dejar huecos. `true`: se quedan donde los sueltes. */
+    free: boolean;
+  };
   card: {
     style: CardStyle;
     /** Opacidad del fondo de la tarjeta, 20–100. */
@@ -357,12 +385,13 @@ export interface Appearance {
 
 export const DEFAULT_APPEARANCE: Appearance = {
   mode: "dark",
-  palette: "midnight",
-  accent: "#7c8cff",
-  font: "sans",
+  palette: "sand",
+  accent: "#e0793f",
+  font: "humanist",
   density: "comfortable",
-  card: { style: "glass", opacity: 62, blur: 18, radius: 20, shadow: "soft" },
-  background: { type: "aurora", from: "#1b2140", to: "#0b0d13", angle: 160, imageId: null, blur: 0, dim: 35 },
+  layout: { free: false },
+  card: { style: "solid", opacity: 100, blur: 0, radius: 14, shadow: "soft" },
+  background: { type: "plain", from: "#2a2520", to: "#13110e", angle: 160, imageId: null, blur: 0, dim: 35 },
 };
 
 export const BACKGROUND_ID_PATTERN = /^[a-f0-9]{32}\.(jpg|png|webp|avif)$/;
@@ -405,3 +434,46 @@ export type WidgetData =
   | { ok: false; error: string };
 
 export const GRID_COLUMNS = 12;
+
+// ───────── Configuración en texto ─────────
+
+/** Los documentos en los que se puede editar toda la configuración a mano. */
+export const CONFIG_DOC_IDS = ["pages", "connections", "appearance"] as const;
+export type ConfigDocId = (typeof CONFIG_DOC_IDS)[number];
+
+export interface ConfigDocDTO {
+  id: ConfigDocId;
+  /** Nombre de archivo sugerido al descargarlo. */
+  filename: string;
+  text: string;
+}
+
+export interface ConfigDocsDTO {
+  documents: ConfigDocDTO[];
+  /** Variables `OBLIVION_VAR_*` definidas en el servidor (solo el nombre) que se pueden usar como `{{NOMBRE}}`. */
+  variables: string[];
+}
+
+export interface ConfigProblem {
+  doc: ConfigDocId;
+  message: string;
+  /** Línea (1 = primera) del documento donde está el problema, si se conoce. */
+  line?: number;
+  /** Ruta dentro del documento, p. ej. `pages[0].widgets[2].config.url`. */
+  path?: string;
+}
+
+export interface ConfigChange {
+  doc: ConfigDocId;
+  action: "add" | "update" | "remove";
+  kind: "page" | "widget" | "connection" | "appearance";
+  id: string;
+  label: string;
+}
+
+export interface ConfigPlanDTO {
+  ok: boolean;
+  problems: ConfigProblem[];
+  changes: ConfigChange[];
+  warnings: ConfigProblem[];
+}

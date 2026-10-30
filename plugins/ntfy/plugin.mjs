@@ -97,6 +97,7 @@ const plugin = {
 
         return {
           kind: "list",
+          scroll: true,
           empty: "No hay mensajes en ese periodo.",
           items: messages.slice(0, limit).map((m) => {
             const p = Number(m.priority) || 3;

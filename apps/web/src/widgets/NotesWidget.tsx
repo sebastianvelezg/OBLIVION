@@ -58,7 +58,7 @@ export function NotesWidget({ widget, canEdit }: { widget: WidgetDTO; canEdit: b
   const empty = state.text.trim() === "";
   return (
     <div
-      className={`group relative h-full leading-relaxed ${cls} ${canEdit ? "cursor-text" : ""}`}
+      className={`group relative h-full overflow-y-auto pr-1 leading-relaxed [scrollbar-width:thin] ${cls} ${canEdit ? "cursor-text" : ""}`}
       onDoubleClick={() => canEdit && setEditing(true)}
     >
       {empty ? (

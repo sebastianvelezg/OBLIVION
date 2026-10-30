@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ConnectionDTO } from "@oblivion/sdk";
 import { requireAdmin, type AppEnv } from "../auth.js";
 import { audit } from "../db.js";
+import { newId } from "../ids.js";
 import { buildStoredConfig, ConfigError, maskConfig } from "../plugins/config.js";
 import type { AppDeps } from "../app.js";
 
@@ -89,7 +90,7 @@ export function connectionRoutes(deps: AppDeps) {
       throw err;
     }
 
-    const id = crypto.randomUUID();
+    const id = newId(db, "connections", parsed.data.name, "conexion");
     db.prepare("INSERT INTO connections (id, plugin_id, name, config, created_at) VALUES (?,?,?,?,?)").run(
       id,
       plugin.id,

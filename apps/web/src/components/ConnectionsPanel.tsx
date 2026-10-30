@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Pencil, Plug, Plus, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Pencil, Plug, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CatalogWidget, ConnectionDTO, Field as FieldDef } from "@oblivion/sdk";
 import { api } from "../api";
@@ -98,6 +98,7 @@ function useRefreshAll() {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ["connections"] });
+    qc.invalidateQueries({ queryKey: ["connection-status"] });
     qc.invalidateQueries({ queryKey: ["pages"] });
     // Los widgets que usan la conexión vuelven a pedir sus datos.
     qc.invalidateQueries({ queryKey: ["widget-data"] });
@@ -197,11 +198,37 @@ function ConnectionRow({
 
   const url = typeof conn.config.url === "string" ? conn.config.url : "";
 
+  // Al abrir el panel cada conexión se prueba sola: de un vistazo se ve cuáles funcionan.
+  const status = useQuery({
+    queryKey: ["connection-status", conn.id, JSON.stringify(conn.config)],
+    queryFn: () =>
+      api.post<{ ok: true; message: string } | { ok: false; error: string }>("/connections/test", {
+        pluginId: conn.pluginId,
+        id: conn.id,
+        config: conn.config,
+      }),
+    enabled: testable,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const state: "unknown" | "checking" | "ok" | "bad" = !testable
+    ? "unknown"
+    : status.isFetching
+      ? "checking"
+      : status.data?.ok
+        ? "ok"
+        : status.data || status.isError
+          ? "bad"
+          : "unknown";
+  const statusText = status.data?.ok === true ? status.data.message : status.data?.ok === false ? status.data.error : status.error?.message;
+  const dot = { unknown: "bg-muted/40", checking: "animate-pulse bg-muted", ok: "bg-good", bad: "bg-bad" }[state];
+
   return (
     <li className="rounded-xl border border-line bg-surface-2 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text">
+        <div className="relative grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text">
           <Plug size={17} />
+          <span className={`absolute -right-0.5 -top-0.5 size-3 rounded-full ring-2 ring-[var(--surface-2)] ${dot}`} aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{conn.name}</div>
@@ -209,8 +236,16 @@ function ConnectionRow({
             {pluginName}
             {url && <> · {url.replace(/\/$/, "")}</>} · {conn.widgets === 0 ? "sin widgets" : `${conn.widgets} widget${conn.widgets === 1 ? "" : "s"}`}
           </div>
+          {state === "ok" && <div className="mt-0.5 truncate text-xs text-good">{statusText}</div>}
+          {state === "bad" && <div className="mt-0.5 text-xs text-bad [overflow-wrap:anywhere]">{statusText}</div>}
+          {state === "checking" && <div className="mt-0.5 text-xs text-muted">Probando…</div>}
         </div>
         <div className="flex gap-1">
+          {testable && (
+            <button className="btn btn-ghost btn-icon" onClick={() => status.refetch()} disabled={status.isFetching} aria-label={`Probar ${conn.name}`} title="Probar de nuevo">
+              <RefreshCw size={15} className={status.isFetching ? "animate-spin" : ""} />
+            </button>
+          )}
           <button
             className={`btn btn-icon ${editing ? "" : "btn-ghost"}`}
             onClick={() => {

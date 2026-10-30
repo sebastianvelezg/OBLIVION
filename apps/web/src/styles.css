@@ -6,6 +6,7 @@
 
 @theme inline {
   --font-sans: var(--app-font);
+  --font-display: var(--display-font);
   --color-bg: var(--bg);
   --color-surface: var(--card-bg);
   --color-surface-solid: var(--surface-solid);
@@ -31,32 +32,34 @@
 
 :root {
   color-scheme: dark;
-  --app-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --bg: #0b0d13;
-  --surface-solid: #151823;
-  --surface-2: #1d2130;
-  --fg: #e8eaf2;
-  --muted: #8b90a3;
-  --line: rgba(255, 255, 255, 0.11);
-  --accent: #7c8cff;
-  --accent-fg: #0b0d13;
-  --accent-text: #7c8cff;
-  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --app-font: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --display-font: "Instrument Serif", ui-serif, Georgia, serif;
+  --display-weight: 400;
+  --bg: #13110e;
+  --surface-solid: #1d1a16;
+  --surface-2: #292520;
+  --fg: #efe9df;
+  --muted: #9b9285;
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #e0793f;
+  --accent-fg: #ffffff;
+  --accent-text: #f0a073;
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
   --good: #4ade80;
   --warn: #fbbf24;
   --bad: #f87171;
-  --card-bg: color-mix(in oklab, #151823 62%, transparent);
-  --card-blur: 18px;
-  --card-border: rgba(255, 255, 255, 0.14);
+  --card-bg: #1d1a16;
+  --card-blur: 0px;
+  --card-border: rgba(255, 255, 255, 0.1);
   --card-border-width: 1px;
   --neon-glow: 45%;
   --brutal-offset: 5px;
   --card-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.6);
-  --card-radius: 20px;
+  --card-radius: 14px;
   --card-pad: 16px;
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 11px;
 }
 
 html,
@@ -83,6 +86,28 @@ body {
   outline-offset: 2px;
 }
 
+/* Cifras y títulos grandes: la tipografía «de exhibición» del estilo elegido. */
+.display {
+  font-family: var(--display-font);
+  font-weight: var(--display-weight);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* Grano fino sobre el fondo: quita el aspecto plano y «de plantilla». */
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: var(--grain, 0.07);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+html[data-theme="light"] .grain {
+  --grain: 0.12;
+  mix-blend-mode: multiply;
+}
+
 /* ───────── componentes reutilizables ───────── */
 @layer components {
 
@@ -106,6 +131,170 @@ html[data-card-style="neon"] .card {
 html[data-card-style="brutal"] .card {
   border: 2px solid var(--fg);
   box-shadow: var(--brutal-offset) var(--brutal-offset) 0 var(--accent);
+}
+
+/* Tarjeta de un widget: además de lo anterior, mide su propio tamaño para que su cabecera
+   y sus controles de edición se adapten (las tarjetas de diálogos no lo necesitan). */
+.widget-wrap {
+  position: relative;
+  container: widget / size;
+}
+.widget {
+  position: relative;
+  isolation: isolate;
+}
+/* Sin tarjeta: el contenido va directo sobre el fondo. */
+.widget.is-bare {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-card-style="neon"] .widget.is-bare,
+html[data-card-style="brutal"] .widget.is-bare {
+  border-color: transparent;
+  box-shadow: none;
+}
+.widget-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--muted);
+}
+@container widget (max-height: 96px) {
+  .widget-head {
+    display: none;
+  }
+}
+
+/* Imagen de fondo del widget y velo para que el texto siga leyéndose. */
+.widget-image {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+}
+.widget-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+/* ───────── modo edición de un widget ───────── */
+.widget.is-editing {
+  outline: 1.5px solid color-mix(in oklab, var(--accent) 65%, transparent);
+  outline-offset: 0;
+}
+.edit-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  cursor: grab;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--bg) 22%, transparent);
+  transition: background 0.15s;
+}
+.edit-veil:hover {
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
+}
+.edit-veil:active {
+  cursor: grabbing;
+}
+.edit-bar {
+  position: absolute;
+  inset: -13px 8px auto 8px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.edit-bar > * {
+  pointer-events: auto;
+}
+.edit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fg);
+  background: color-mix(in oklab, var(--surface-solid) 90%, transparent);
+  border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.35);
+}
+.edit-chip .btn-icon,
+.edit-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.edit-chip button:hover {
+  color: var(--fg);
+  background: var(--accent-soft);
+}
+.edit-chip button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.edit-chip button.danger:hover {
+  color: var(--bad);
+  background: color-mix(in oklab, var(--bad) 16%, transparent);
+}
+.edit-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 26;
+  transform: translateX(-50%);
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-fg);
+  background: var(--accent);
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+@container widget (max-width: 250px) {
+  .edit-sizes {
+    display: none;
+  }
+}
+@container widget (max-width: 170px) {
+  .edit-name {
+    display: none;
+  }
+}
+@container widget (max-height: 70px) {
+  .edit-name {
+    display: none;
+  }
 }
 
 .input {
@@ -236,17 +425,81 @@ dialog.modal::backdrop {
 }
 /* ───────── grilla ───────── */
 
-.react-grid-item.react-grid-placeholder {
-  background: var(--accent);
-  opacity: 0.18;
+/* Guías de la grilla mientras se edita: un punto en el centro de cada celda, para ver dónde «encaja» todo. */
+.grid-guides {
+  position: relative;
   border-radius: var(--card-radius);
+  background-image: radial-gradient(circle, color-mix(in oklab, var(--fg) 20%, transparent) 1.2px, transparent 1.6px);
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  border: 1.5px dashed color-mix(in oklab, var(--accent) 80%, transparent);
+  opacity: 1;
+  border-radius: var(--card-radius);
+  transition-duration: 120ms;
+}
+.react-grid-item.react-draggable-dragging > .widget {
+  box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.55);
+  transform: scale(1.012);
+}
+.react-grid-item > .widget {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Tiradores de tamaño: bordes (franjas invisibles) y esquinas (corchetes visibles al editar). */
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  opacity: 1;
+  z-index: 30;
+  margin: 0;
+  transform: none;
+  background: none;
 }
 .react-grid-item > .react-resizable-handle::after {
-  border-color: var(--muted) !important;
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 0 solid var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s;
+  right: auto;
+  bottom: auto;
 }
-.editing .react-grid-item > .card {
-  outline: 1px dashed color-mix(in oklab, var(--accent) 55%, transparent);
-  outline-offset: -1px;
+.react-grid-item:hover > .react-resizable-handle::after,
+.react-grid-item.resizing > .react-resizable-handle::after {
+  opacity: 1;
+}
+.react-grid-item > .react-resizable-handle-se { right: 0; bottom: 0; cursor: se-resize; }
+.react-grid-item > .react-resizable-handle-se::after { right: 4px; bottom: 4px; border-right-width: 2.5px; border-bottom-width: 2.5px; border-bottom-right-radius: 4px; }
+.react-grid-item > .react-resizable-handle-sw { left: 0; bottom: 0; cursor: sw-resize; }
+.react-grid-item > .react-resizable-handle-sw::after { left: 4px; bottom: 4px; border-left-width: 2.5px; border-bottom-width: 2.5px; border-bottom-left-radius: 4px; }
+.react-grid-item > .react-resizable-handle-ne { right: 0; top: 0; cursor: ne-resize; }
+.react-grid-item > .react-resizable-handle-ne::after { right: 4px; top: 4px; border-right-width: 2.5px; border-top-width: 2.5px; border-top-right-radius: 4px; }
+.react-grid-item > .react-resizable-handle-nw { left: 0; top: 0; cursor: nw-resize; }
+.react-grid-item > .react-resizable-handle-nw::after { left: 4px; top: 4px; border-left-width: 2.5px; border-top-width: 2.5px; border-top-left-radius: 4px; }
+.react-grid-item > .react-resizable-handle-n,
+.react-grid-item > .react-resizable-handle-s { left: 18px; right: 18px; width: auto; height: 10px; margin: 0; cursor: ns-resize; }
+.react-grid-item > .react-resizable-handle-n { top: -3px; }
+.react-grid-item > .react-resizable-handle-s { bottom: -3px; }
+.react-grid-item > .react-resizable-handle-e,
+.react-grid-item > .react-resizable-handle-w { top: 18px; bottom: 18px; width: 10px; height: auto; margin: 0; cursor: ew-resize; }
+.react-grid-item > .react-resizable-handle-e { right: -3px; }
+.react-grid-item > .react-resizable-handle-w { left: -3px; }
+.react-grid-item > .react-resizable-handle-n::after,
+.react-grid-item > .react-resizable-handle-s::after,
+.react-grid-item > .react-resizable-handle-e::after,
+.react-grid-item > .react-resizable-handle-w::after { display: none; }
+
+/* Pantallas medianas y móviles: los widgets fluyen en una rejilla propia (sin arrastrar). */
+.flow-grid {
+  display: grid;
+  grid-auto-flow: dense;
+  grid-auto-rows: var(--flow-row);
+  gap: var(--flow-gap);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -254,4 +507,175 @@ dialog.modal::backdrop {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ───────── Configuración en texto ───────── */
+.code-editor {
+  display: flex;
+  height: clamp(240px, 36vh, 440px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.code-editor:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.code-gutter {
+  position: relative;
+  flex: none;
+  min-width: 3.25rem;
+  padding: 0.6rem 0.6rem 0.6rem 0.5rem;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  opacity: 0.85;
+}
+.code-gutter pre {
+  margin: 0;
+  font: inherit;
+}
+.code-gutter .mark {
+  position: absolute;
+  right: 0.6rem;
+  left: 0;
+  background: var(--surface-2);
+  font-weight: 700;
+}
+.code-gutter .mark.is-bad {
+  color: var(--bad);
+}
+.code-gutter .mark.is-warn {
+  color: var(--warn);
+}
+.code-area {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+
+.doc-tabs {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.doc-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: calc(var(--r-sm) - 3px);
+  color: var(--muted);
+  font-size: 0.875rem;
+  transition: color 0.15s, background 0.15s;
+}
+.doc-tab:hover {
+  color: var(--fg);
+}
+.doc-tab[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.doc-tab .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
+.doc-tab .dot.is-bad {
+  background: var(--bad);
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+.problem {
+  display: flex;
+  width: 100%;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  margin: 0 -0.4rem;
+  border-radius: 6px;
+  text-align: left;
+  line-height: 1.35;
+}
+.problem:hover {
+  background: var(--surface-2);
+}
+.problem.is-bad {
+  color: var(--bad);
+}
+.problem.is-warn {
+  color: var(--warn);
+}
+
+.changes summary,
+.help summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--muted);
+}
+.changes summary:hover,
+.help summary:hover {
+  color: var(--fg);
+}
+.changes ul {
+  margin-top: 0.4rem;
+  max-height: 9rem;
+  overflow: auto;
+  display: grid;
+  gap: 1px;
+}
+.changes li {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+.changes .sign {
+  width: 1rem;
+  text-align: center;
+  font-weight: 700;
+}
+.changes .is-add .sign {
+  color: var(--good);
+}
+.changes .is-update .sign {
+  color: var(--warn);
+}
+.changes .is-remove .sign {
+  color: var(--bad);
+}
+.help {
+  max-width: 34rem;
+}
+.help ul {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1rem;
+  list-style: disc;
+}
+.help code {
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  background: var(--surface-2);
 }

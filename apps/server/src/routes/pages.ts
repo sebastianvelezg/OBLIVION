@@ -6,14 +6,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { requireAdmin, requireUser, type AppEnv } from "../auth.js";
 import { audit, tx } from "../db.js";
+import { newId } from "../ids.js";
 import { buildStoredConfig, ConfigError, maskConfig, normalizeUrl } from "../plugins/config.js";
 import { backgroundSchema, collectBackgroundGarbage } from "./appearance.js";
+import { BACKGROUND_ID_PATTERN } from "@oblivion/sdk";
 import { IMAGE_KEY } from "../plugins/schema.js";
 import { emptyState, isStateful, validateState } from "../plugins/state.js";
 import type { RegisteredWidget } from "../plugins/registry.js";
 import type { AppDeps } from "../app.js";
 
-interface WidgetRow {
+export interface WidgetRow {
   id: string;
   page_id: string;
   type: string;
@@ -37,23 +39,33 @@ const styleSchema = z
     accent: hexColor.nullable().optional(),
     opacity: z.number().int().min(10).max(100).nullable().optional(),
     link: z.string().trim().max(500).nullable().optional(),
+    bare: z.boolean().nullable().optional(),
+    image: z.string().regex(BACKGROUND_ID_PATTERN).nullable().optional(),
+    imageDim: z.number().int().min(0).max(85).nullable().optional(),
+    imageBlur: z.number().int().min(0).max(24).nullable().optional(),
   })
   .strict();
 
 /** Valida el estilo que llega del navegador y lo deja sin vacíos (lo que se guarda). */
-function buildStyle(input: unknown): WidgetStyle {
+export function buildStyle(input: unknown): WidgetStyle {
   const parsed = styleSchema.safeParse(input ?? {});
   if (!parsed.success) throw new ConfigError("Estilo inválido");
-  const { titleMode, accent, opacity, link } = parsed.data;
+  const { titleMode, accent, opacity, link, bare, image, imageDim, imageBlur } = parsed.data;
   const out: WidgetStyle = {};
   if (titleMode && titleMode !== "auto") out.titleMode = titleMode;
   if (accent) out.accent = accent.toLowerCase();
   if (opacity != null) out.opacity = opacity;
   if (link) out.link = normalizeUrl(link, "Enlace");
+  if (bare) out.bare = true;
+  if (image) {
+    out.image = image;
+    if (imageDim != null) out.imageDim = imageDim;
+    if (imageBlur != null) out.imageBlur = imageBlur;
+  }
   return out;
 }
 
-function readStyle(json: string): WidgetStyle {
+export function readStyle(json: string): WidgetStyle {
   try {
     return buildStyle(JSON.parse(json));
   } catch {
@@ -94,6 +106,9 @@ export function pageRoutes(deps: AppDeps) {
     if (bg.type === "image" && !bg.imageId) return "Sube una imagen para usar el fondo «Foto»";
     return null;
   }
+
+  const imageMissing = (style: WidgetStyle) =>
+    !!style.image && !fs.existsSync(path.join(appConfig.uploadsDir, style.image));
 
   function toWidgetDTO(row: WidgetRow, urls: Map<string, string> = connectionUrls()): WidgetDTO {
     const reg = registry.get(row.type);
@@ -172,7 +187,7 @@ export function pageRoutes(deps: AppDeps) {
     if (problem) return c.json({ error: problem }, 400);
     const count = (db.prepare("SELECT COUNT(*) AS n FROM pages").get() as { n: number }).n;
     if (count >= 20) return c.json({ error: "Máximo 20 páginas" }, 400);
-    const id = crypto.randomUUID();
+    const id = newId(db, "pages", parsed.data.title, "pagina");
     const background = parsed.data.background ?? null;
     db.prepare("INSERT INTO pages (id, title, position, created_at, background) VALUES (?,?,?,?,?)").run(
       id,
@@ -263,6 +278,8 @@ export function pageRoutes(deps: AppDeps) {
         config: z.unknown(),
         connectionId: z.string().max(64).nullable().optional(),
         style: z.unknown().optional(),
+        // Tamaño inicial elegido (compacto, medio, grande...); sin él, el por defecto del widget.
+        size: z.object({ w: z.number().int().min(1).max(GRID_COLUMNS), h: z.number().int().min(1).max(60) }).optional(),
       })
       .safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Datos inválidos" }, 400);
@@ -285,11 +302,15 @@ export function pageRoutes(deps: AppDeps) {
       if (err instanceof ConfigError) return c.json({ error: err.message }, 400);
       throw err;
     }
+    if (imageMissing(style)) return c.json({ error: "La imagen del widget no existe" }, 400);
 
-    const { w, h } = reg.def.defaultSize;
+    const min = reg.def.minSize ?? { w: 1, h: 1 };
+    const want = parsed.data.size ?? reg.def.defaultSize;
+    const w = Math.max(min.w, want.w);
+    const h = Math.max(min.h, want.h);
     const taken = db.prepare("SELECT x, y, w, h FROM widgets WHERE page_id = ?").all(pageId) as unknown as Rect[];
     const slot = findFreeSlot(taken, w, h);
-    const id = crypto.randomUUID();
+    const id = newId(db, "widgets", reg.fullType.replace(/^core\./, ""), "widget");
     db.prepare(
       "INSERT INTO widgets (id, page_id, type, title, config, state, connection_id, style, x, y, w, h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
     ).run(
@@ -351,7 +372,9 @@ export function pageRoutes(deps: AppDeps) {
     let styleJson = row.style;
     if (parsed.data.style !== undefined) {
       try {
-        styleJson = JSON.stringify(buildStyle(parsed.data.style));
+        const built = buildStyle(parsed.data.style);
+        if (imageMissing(built)) return c.json({ error: "La imagen del widget no existe" }, 400);
+        styleJson = JSON.stringify(built);
       } catch (err) {
         if (err instanceof ConfigError) return c.json({ error: err.message }, 400);
         throw err;
@@ -365,8 +388,28 @@ export function pageRoutes(deps: AppDeps) {
       id,
     );
     runtime.invalidate(id);
+    if (parsed.data.style !== undefined) collectBackgroundGarbage(db, appConfig.uploadsDir);
     const updated = db.prepare("SELECT * FROM widgets WHERE id = ?").get(id) as unknown as WidgetRow;
     return c.json({ widget: toWidgetDTO(updated) });
+  });
+
+  // Duplicar: la copia se hace aquí porque el navegador nunca ve los secretos guardados.
+  app.post("/widgets/:id/duplicate", requireAdmin, (c) => {
+    const row = db.prepare("SELECT * FROM widgets WHERE id = ?").get(c.req.param("id")) as unknown as
+      | WidgetRow
+      | undefined;
+    if (!row) return c.json({ error: "No existe" }, 404);
+    const count = (db.prepare("SELECT COUNT(*) AS n FROM widgets WHERE page_id = ?").get(row.page_id) as { n: number }).n;
+    if (count >= 100) return c.json({ error: "Máximo 100 widgets por página" }, 400);
+    const taken = db.prepare("SELECT x, y, w, h FROM widgets WHERE page_id = ?").all(row.page_id) as unknown as Rect[];
+    const slot = findFreeSlot(taken, row.w, row.h);
+    const id = newId(db, "widgets", row.type.replace(/^core\./, ""), "widget");
+    db.prepare(
+      "INSERT INTO widgets (id, page_id, type, title, config, state, connection_id, style, x, y, w, h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+    ).run(id, row.page_id, row.type, row.title, row.config, row.state, row.connection_id, row.style, slot.x, slot.y, row.w, row.h);
+    audit(db, "widget_added", { username: c.get("user")!.username, detail: row.type });
+    const copy = db.prepare("SELECT * FROM widgets WHERE id = ?").get(id) as unknown as WidgetRow;
+    return c.json({ widget: toWidgetDTO(copy) }, 201);
   });
 
   // Imágenes de las vistas «media»: el navegador pide una clave opaca y el servidor
@@ -410,6 +453,7 @@ export function pageRoutes(deps: AppDeps) {
     const res = db.prepare("DELETE FROM widgets WHERE id = ?").run(id);
     if (res.changes === 0) return c.json({ error: "No existe" }, 404);
     runtime.invalidate(id);
+    collectBackgroundGarbage(db, appConfig.uploadsDir);
     return c.json({ ok: true });
   });
 
@@ -448,7 +492,7 @@ export function findFreeSlot(taken: Rect[], w: number, h: number): { x: number; 
   return { x: 0, y: maxY };
 }
 
-function parseBackground(json: string | null) {
+export function parseBackground(json: string | null) {
   if (!json) return null;
   try {
     const parsed = backgroundSchema.safeParse(JSON.parse(json));
@@ -458,7 +502,7 @@ function parseBackground(json: string | null) {
   }
 }
 
-function safeParse(json: string): Record<string, unknown> {
+export function safeParse(json: string): Record<string, unknown> {
   try {
     const v = JSON.parse(json);
     return v && typeof v === "object" ? v : {};

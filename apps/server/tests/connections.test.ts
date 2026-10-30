@@ -187,7 +187,7 @@ describe("migración a conexiones", () => {
     ins.run("w4", "speedtest.latest", JSON.stringify({ url: "http://192.168.1.5:8765/", version: "2", apiKey: box.encrypt("token-1234567890") }));
     ins.run("w5", "core.clock", JSON.stringify({ format: "24h" }));
 
-    migrate(old);
+    migrate(old, 6); // solo hasta las conexiones: los ids legibles (7) tienen su propia prueba
 
     const conns = old.prepare("SELECT * FROM connections ORDER BY plugin_id, name").all() as any[];
     assert.equal(conns.length, 3, "dos Jellyfin distintos + un Speedtest");

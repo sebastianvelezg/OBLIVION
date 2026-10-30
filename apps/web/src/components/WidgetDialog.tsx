@@ -1,13 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { CheckCircle2, Plug, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { CatalogWidget, WidgetDTO, WidgetStyle } from "@oblivion/sdk";
 import { api } from "../api";
+import { sizePresets } from "../lib/sizes";
 import { ConfigForm, defaultsFor } from "./ConfigForm";
-import { ConnectionFields, useConnections } from "./ConnectionsPanel";
+import { ConnectionFields, TestConnection, useConnections } from "./ConnectionsPanel";
+import { WidgetIcon } from "./WidgetIcon";
 import { WidgetStyleFields } from "./WidgetStyleFields";
 import { Field, Modal } from "./ui";
 
-/** Elegir un widget del catálogo y configurarlo. */
+const plain = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/** Elegir un widget del catálogo (con búsqueda y sabiendo qué servicios ya tienen conexión) y configurarlo. */
 export function AddWidgetDialog({
   pageId,
   catalog,
@@ -18,12 +23,23 @@ export function AddWidgetDialog({
   onClose: () => void;
 }) {
   const [picked, setPicked] = useState<CatalogWidget | null>(null);
-  const groups = Object.entries(
-    catalog.reduce<Record<string, CatalogWidget[]>>((acc, w) => {
-      (acc[w.pluginName] ??= []).push(w);
-      return acc;
-    }, {}),
-  );
+  const [query, setQuery] = useState("");
+  const connsQ = useConnections(true);
+  const connected = useMemo(() => new Set((connsQ.data?.connections ?? []).map((c) => c.pluginId)), [connsQ.data]);
+
+  const groups = useMemo(() => {
+    const q = plain(query.trim());
+    const hit = (w: CatalogWidget) => !q || plain(`${w.name} ${w.description} ${w.pluginName}`).includes(q);
+    const map = new Map<string, { id: string; name: string; widgets: CatalogWidget[] }>();
+    for (const w of catalog) {
+      if (!hit(w)) continue;
+      if (!map.has(w.pluginId)) map.set(w.pluginId, { id: w.pluginId, name: w.pluginName, widgets: [] });
+      map.get(w.pluginId)!.widgets.push(w);
+    }
+    // Primero los básicos, luego los servicios ya conectados y al final el resto, por orden alfabético.
+    const rank = (id: string) => (id === "core" ? 0 : connected.has(id) ? 1 : 2);
+    return [...map.values()].sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name, "es"));
+  }, [catalog, query, connected]);
 
   if (picked) {
     return <ConfigureDialog mode="add" pageId={pageId} def={picked} onBack={() => setPicked(null)} onClose={onClose} />;
@@ -32,26 +48,59 @@ export function AddWidgetDialog({
   return (
     <Modal title="Añadir widget" onClose={onClose} wide>
       <div className="space-y-6">
-        {groups.map(([plugin, widgets]) => (
-          <section key={plugin}>
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">{plugin}</h3>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {widgets.map((w) => (
-                <button
-                  key={w.fullType}
-                  onClick={() => setPicked(w)}
-                  className="flex items-start gap-3 rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-accent"
-                >
-                  <span className="text-2xl">{w.icon ?? "🧩"}</span>
-                  <span>
-                    <span className="block text-sm font-medium">{w.name}</span>
-                    <span className="block text-xs text-muted">{w.description}</span>
+        <label className="relative block">
+          <span className="sr-only">Buscar widgets</span>
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+          <input
+            className="input pl-9"
+            type="search"
+            autoFocus
+            placeholder="Buscar: reloj, Jellyfin, descargas, clima…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+
+        {groups.length === 0 && <p className="py-8 text-center text-sm text-muted">Ningún widget coincide con «{query}».</p>}
+
+        {groups.map((g) => {
+          const needs = g.widgets[0]!.connection.length > 0;
+          return (
+            <section key={g.id}>
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
+                {g.name}
+                {g.id === "core" && <span className="rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent-text">Sin conexión</span>}
+                {needs && connected.has(g.id) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-good/15 px-2 py-0.5 font-medium text-good">
+                    <CheckCircle2 size={11} /> Conectado
                   </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
+                )}
+                {needs && !connected.has(g.id) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-line px-2 py-0.5 font-medium">
+                    <Plug size={11} /> Pide conexión
+                  </span>
+                )}
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {g.widgets.map((w) => (
+                  <button
+                    key={w.fullType}
+                    onClick={() => setPicked(w)}
+                    className="flex items-start gap-3 rounded-xl border border-line bg-surface-2 p-3 text-left transition-colors hover:border-accent"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent-text">
+                      <WidgetIcon emoji={w.icon} size={18} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">{w.name}</span>
+                      <span className="line-clamp-2 block text-xs text-muted">{w.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </Modal>
   );
@@ -75,11 +124,25 @@ type Props =
 
 const NEW = "new";
 
+/** Miniatura de la huella de un tamaño dentro de la grilla de 12 columnas. */
+function Footprint({ w, h }: { w: number; h: number }) {
+  return (
+    <span className="relative block h-9 w-full rounded-md bg-line/60" aria-hidden>
+      <span
+        className="absolute left-1 top-1 rounded-[3px] bg-accent"
+        style={{ width: `calc(${(w / 12) * 100}% - 2px)`, height: `${Math.min(100, (h / 12) * 100)}%`, minHeight: 6, maxHeight: "calc(100% - 8px)" }}
+      />
+    </span>
+  );
+}
+
 function ConfigureDialog(props: Props) {
   const { def, onClose } = props;
   const qc = useQueryClient();
   const editing = props.mode === "edit";
   const usesConnection = def.connection.length > 0;
+  const presets = useMemo(() => sizePresets(def), [def]);
+  const [sizeId, setSizeId] = useState<string>("m");
   const [title, setTitle] = useState(editing ? props.widget.title : "");
   const [values, setValues] = useState<Record<string, any>>(() => ({
     ...defaultsFor(def.config),
@@ -93,6 +156,7 @@ function ConfigureDialog(props: Props) {
   const existing = (connsQ.data?.connections ?? []).filter((c) => c.pluginId === def.pluginId);
   const [picked, setPicked] = useState<string | null>(editing ? props.widget.connectionId : null);
   const connectionId = picked ?? existing[0]?.id ?? NEW;
+  const chosen = existing.find((c) => c.id === connectionId);
   const [newName, setNewName] = useState(def.pluginName);
   const [newValues, setNewValues] = useState<Record<string, any>>(() => defaultsFor(def.connection));
 
@@ -111,9 +175,16 @@ function ConfigureDialog(props: Props) {
           useId = connectionId;
         }
       }
-      return editing
-        ? api.patch(`/widgets/${props.widget.id}`, { title, config: values, connectionId: useId, style })
-        : api.post(`/pages/${props.pageId}/widgets`, { type: def.fullType, title, config: values, connectionId: useId, style });
+      if (editing) return api.patch(`/widgets/${props.widget.id}`, { title, config: values, connectionId: useId, style });
+      const size = presets.find((p) => p.id === sizeId);
+      return api.post(`/pages/${props.pageId}/widgets`, {
+        type: def.fullType,
+        title,
+        config: values,
+        connectionId: useId,
+        style,
+        size: size && { w: size.w, h: size.h },
+      });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["connections"] }),
     onSuccess: async () => {
@@ -147,7 +218,40 @@ function ConfigureDialog(props: Props) {
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text">
+            <WidgetIcon emoji={def.icon} size={20} />
+          </span>
+          <p className="text-sm text-muted">{def.description}</p>
+        </div>
+
+        {!editing && presets.length > 1 && (
+          <div>
+            <span className="label">Tamaño inicial</span>
+            <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Tamaño inicial">
+              {presets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={sizeId === p.id}
+                  onClick={() => setSizeId(p.id)}
+                  className="rounded-xl border p-2 text-left transition-colors hover:border-accent"
+                  style={{ borderColor: sizeId === p.id ? "var(--accent)" : "var(--line)", background: sizeId === p.id ? "var(--accent-soft)" : undefined }}
+                >
+                  <Footprint w={p.w} h={p.h} />
+                  <span className="mt-1.5 block text-xs font-medium">{p.label}</span>
+                  <span className="block text-[11px] tabular-nums text-muted">
+                    {p.w} × {p.h}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted">Luego puedes cambiarlo con S · M · L al editar, o estirando los bordes.</p>
+          </div>
+        )}
+
         <Field label="Título (opcional)">
           <input className="input" value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} />
         </Field>
@@ -181,6 +285,7 @@ function ConfigureDialog(props: Props) {
                 test={def.testable ? { pluginId: def.pluginId } : undefined}
               />
             )}
+            {chosen && def.testable && <TestConnection pluginId={def.pluginId} id={chosen.id} values={chosen.config} />}
           </div>
         )}
 

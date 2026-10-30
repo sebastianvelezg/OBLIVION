@@ -2,6 +2,7 @@ import { Bell, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { WidgetDTO } from "@oblivion/sdk";
 import { toast } from "../components/ui";
+import { useBox } from "../lib/box";
 import { useWidgetState } from "./useWidgetState";
 
 interface Item {
@@ -48,7 +49,11 @@ const tone: Record<Urgency, string> = {
 };
 
 export function RemindersWidget({ widget, canEdit }: { widget: WidgetDTO; canEdit: boolean }) {
+  const box = useBox();
   const { state, update } = useWidgetState<{ items: Item[] }>(widget, canEdit);
+  // Con poco alto el formulario se esconde tras un botón y solo queda la lista.
+  const compact = box.h < 210;
+  const [adding, setAdding] = useState(false);
   const showDone = (widget.config as { showDone?: boolean }).showDone !== false;
   const [text, setText] = useState("");
   const [date, setDate] = useState("");
@@ -102,8 +107,8 @@ export function RemindersWidget({ widget, canEdit }: { widget: WidgetDTO; canEdi
     update({ items: state.items.map((i) => (i.id === id ? { ...i, ...p } : i)) });
 
   return (
-    <div className="flex h-full flex-col gap-2">
-      {canEdit && (
+    <div className="flex size-full flex-col gap-2">
+      {canEdit && (!compact || adding) && (
         <form onSubmit={add} className="space-y-1.5">
           <div className="flex gap-1.5">
             <input
@@ -154,7 +159,7 @@ export function RemindersWidget({ widget, canEdit }: { widget: WidgetDTO; canEdi
         {items.map((it) => {
           const u = it.done ? "none" : urgency(it.due, now);
           return (
-            <li key={it.id} className="group flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-accent-soft">
+            <li key={it.id} className="group flex items-center gap-2 border-b border-line px-1 py-1.5 last:border-b-0">
               <input
                 type="checkbox"
                 className="size-4 shrink-0 accent-[var(--accent)]"
@@ -183,11 +188,16 @@ export function RemindersWidget({ widget, canEdit }: { widget: WidgetDTO; canEdi
         })}
       </ul>
 
-      {state.items.length > 0 && (
+      {(state.items.length > 0 || (canEdit && compact)) && (
         <div className="flex items-center justify-between border-t border-line pt-2 text-xs text-muted">
           <span>
             {pending} pendiente{pending === 1 ? "" : "s"}
           </span>
+          {canEdit && compact && (
+            <button className="hover:text-fg" onClick={() => setAdding((v) => !v)}>
+              {adding ? "Cerrar" : "+ Añadir"}
+            </button>
+          )}
           {doneCount > 0 && canEdit && (
             <button className="hover:text-fg" onClick={() => update({ items: state.items.filter((i) => !i.done) })}>
               Limpiar completadas ({doneCount})
