@@ -4,6 +4,8 @@ Todos los cambios relevantes se documentan aquí. El formato sigue [Keep a Chang
 
 ## [Sin publicar]
 
+## [0.4.0] — Widgets adaptables, filas por biblioteca y calendario con agenda
+
 ### Añadido
 
 - **El contenido de cada widget crece con la tarjeta.** Antes solo crecía el contenedor; ahora el texto, las carátulas y los márgenes se escalan según lo que estires respecto al tamaño normal del widget (suave: entre 90 % y 140 %). En modo Editar, cada widget lleva un control **− 115 % +** para fijarlo de un clic.
