@@ -33,7 +33,7 @@ import { buildStyle, findFreeSlot, parseBackground, readStyle, safeParse, type W
 /** Lo que se escribe en lugar de un secreto: «conserva el que ya hay». */
 export const SECRET_MASK = "••••••••";
 const VARIABLE = /\{\{\s*(OBLIVION_VAR_[A-Z0-9_]+)\s*\}\}/g;
-const HAS_VARIABLE = /\{\{\s*OBLIVION_VAR_/;
+const ONLY_VARIABLE = /^\{\{\s*OBLIVION_VAR_[A-Z0-9_]+\s*\}\}$/;
 
 type Deps = Pick<AppDeps, "db" | "registry" | "box" | "config">;
 type Stored = Record<string, unknown>;
@@ -239,7 +239,14 @@ function friendlyYamlError(code: string, message: string): string {
 
 function parseText(id: ConfigDocId, text: string, rep: Report): Parsed | null {
   const lines = new LineCounter();
-  const doc = parseDocument(text, { lineCounter: lines, uniqueKeys: true });
+  let doc: Document.Parsed;
+  try {
+    doc = parseDocument(text, { lineCounter: lines, uniqueKeys: true });
+  } catch {
+    // Anidado absurdamente profundo u otro caso extremo: es un error del documento, no del servidor.
+    rep.problems.push({ doc: id, message: "El documento es demasiado complejo para leerlo" });
+    return null;
+  }
   rep.parsed[id] = { doc, lines, value: undefined, text };
   if (doc.errors.length) {
     // Un solo fallo suele provocar varios avisos seguidos: se enseña el primero de cada línea.
@@ -285,22 +292,21 @@ function check<S extends z.ZodType>(id: ConfigDocId, schema: S, value: unknown, 
   return null;
 }
 
-function expandVariables(value: unknown, missing: (name: string) => void): unknown {
-  if (typeof value === "string") {
-    return value.replace(VARIABLE, (_m, name: string) => {
-      const found = process.env[name];
-      if (found === undefined) missing(name);
-      return found ?? "";
-    });
-  }
-  if (Array.isArray(value)) return value.map((v) => expandVariables(v, missing));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expandVariables(v, missing)]));
-  }
-  return value;
+/** Sustituye `{{OBLIVION_VAR_X}}` por el valor de esa variable de entorno del servidor. */
+function expandVariables(value: string, missing: (name: string) => void): string {
+  return value.replace(VARIABLE, (_m, name: string) => {
+    const found = process.env[name];
+    if (found === undefined) missing(name);
+    return found ?? "";
+  });
 }
 
-/** Config de un widget o conexión → lo que se guarda (secretos cifrados). */
+/**
+ * Config de un widget o conexión → lo que se guarda (secretos cifrados).
+ *
+ * Las variables de entorno solo se leen en campos `secret`: un valor del entorno puesto en un campo
+ * normal (la URL, el título...) acabaría a la vista de cualquier usuario con sesión.
+ */
 function buildConfig(
   rep: Report,
   doc: ConfigDocId,
@@ -312,28 +318,33 @@ function buildConfig(
 ): Stored | null {
   const input: Record<string, unknown> = { ...(raw ?? {}) };
   const known = new Set(fields.map((f) => f.key));
-  for (const key of Object.keys(input)) {
-    if (!known.has(key)) rep.warn(doc, [...at, key], `«${key}» no es un campo de este elemento y se ignora`);
+  for (const [key, value] of Object.entries(input)) {
+    if (known.has(key)) continue;
+    rep.warn(doc, [...at, key], `«${key}» no es un campo de este elemento y se ignora`);
+    // Se ignora, pero podría ser una clave escrita en el campo equivocado: no se guarda en claro.
+    if (typeof value === "string" && value !== "") rep.literalSecrets.push({ doc, path: [...at, key] });
   }
 
   let missing = false;
-  const expanded = expandVariables(input, (name) => {
-    missing = true;
-    rep.error(doc, at, `La variable de entorno ${name} no está definida en el servidor`);
-  }) as Record<string, unknown>;
-  if (missing) return null;
-
   for (const f of fields) {
     if (f.type !== "secret") continue;
     const value = input[f.key];
-    if (value === SECRET_MASK) delete expanded[f.key]; // «conserva el guardado»
-    else if (typeof value === "string" && value !== "" && !HAS_VARIABLE.test(value)) {
-      rep.literalSecrets.push({ doc, path: [...at, f.key] });
+    if (typeof value !== "string" || value === "") continue;
+    if (value === SECRET_MASK) {
+      delete input[f.key]; // «conserva el guardado»
+      continue;
     }
+    // Solo una referencia pura a una variable es seguro dejarla visible en el texto guardado.
+    if (!ONLY_VARIABLE.test(value)) rep.literalSecrets.push({ doc, path: [...at, f.key] });
+    input[f.key] = expandVariables(value, (name) => {
+      missing = true;
+      rep.error(doc, [...at, f.key], `La variable de entorno ${name} no está definida en el servidor`);
+    });
   }
+  if (missing) return null;
 
   try {
-    return buildStoredConfig(fields, expanded, existing, box);
+    return buildStoredConfig(fields, input, existing, box);
   } catch (err) {
     if (!(err instanceof ConfigError)) throw err;
     rep.error(doc, at, err.message);
@@ -471,6 +482,8 @@ export function buildPlan(deps: Deps, docs: Docs): { plan: Plan | null; result: 
     position: number;
     background: string | null;
   }[];
+  const connectionById = new Map(dbConnections.map((c) => [c.id, c]));
+  const widgetById = new Map(dbWidgets.map((w) => [w.id, w]));
   const imageExists = (id: string) => fs.existsSync(path.join(appConfig.uploadsDir, id));
 
   // Elementos de plugins que ya no están instalados: no salen en los documentos y nunca se borran.
@@ -490,7 +503,7 @@ export function buildPlan(deps: Deps, docs: Docs): { plan: Plan | null; result: 
         rep.error("connections", ["connections"], `Máximo ${MAX_CONNECTIONS} conexiones`);
       }
       const out: NormConnection[] = [];
-      connectionPlugins = new Map([...orphanConnections].map((id) => [id, dbConnections.find((c) => c.id === id)!.plugin_id]));
+      connectionPlugins = new Map([...orphanConnections].map((id) => [id, connectionById.get(id)!.plugin_id]));
       for (const [id, entry] of entries) {
         const at: Path = ["connections", id];
         const plugin = registry.plugin(entry.plugin);
@@ -498,7 +511,7 @@ export function buildPlan(deps: Deps, docs: Docs): { plan: Plan | null; result: 
           rep.error("connections", [...at, "plugin"], `«${entry.plugin}» no es un plugin con conexiones`);
           continue;
         }
-        const existing = dbConnections.find((c) => c.id === id);
+        const existing = connectionById.get(id);
         if (existing && existing.plugin_id !== entry.plugin) {
           rep.error("connections", [...at, "plugin"], `La conexión «${id}» ya existe para «${existing.plugin_id}»; usa otro id`);
           continue;
@@ -560,7 +573,8 @@ export function buildPlan(deps: Deps, docs: Docs): { plan: Plan | null; result: 
           }
           const widgetId = w.id ?? uniqueId(slugify(w.type.replace(/^core\./, ""), "widget"), widgetIds);
           widgetIds.add(widgetId);
-          const existing = dbWidgets.find((row) => row.id === widgetId && row.type === w.type);
+          const previous = widgetById.get(widgetId);
+          const existing = previous?.type === w.type ? previous : undefined;
 
           // conexión
           let connectionId: string | null = null;
@@ -764,11 +778,14 @@ interface DiffInput {
 /** Compara lo escrito con lo guardado y deja en `plan.changes` qué se añade, cambia o quita. */
 function diff({ registry, db }: Deps, plan: Plan, d: DiffInput) {
   const add = (c: ConfigChange) => plan.changes.push(c);
+  const oldConnections = new Map(d.dbConnections.map((r) => [r.id, r]));
+  const oldPages = new Map(d.dbPages.map((r) => [r.id, r]));
+  const oldWidgets = new Map(d.dbWidgets.map((r) => [r.id, r]));
 
   if (plan.connections) {
     const keep = new Set(plan.connections.map((c) => c.id));
     for (const c of plan.connections) {
-      const old = d.dbConnections.find((r) => r.id === c.id);
+      const old = oldConnections.get(c.id);
       if (!old) add({ doc: "connections", action: "add", kind: "connection", id: c.id, label: c.name });
       else if (old.name !== c.name || canon(safeParse(old.config)) !== canon(JSON.parse(c.config))) {
         add({ doc: "connections", action: "update", kind: "connection", id: c.id, label: c.name });
@@ -784,7 +801,7 @@ function diff({ registry, db }: Deps, plan: Plan, d: DiffInput) {
   if (plan.pages && plan.widgets) {
     const titles = new Map(plan.pages.map((p) => [p.id, p.title]));
     plan.pages.forEach((p, position) => {
-      const old = d.dbPages.find((r) => r.id === p.id);
+      const old = oldPages.get(p.id);
       if (!old) add({ doc: "pages", action: "add", kind: "page", id: p.id, label: p.title });
       else if (old.title !== p.title || old.position !== position || canon(safeParse(old.background ?? "{}")) !== canon(safeParse(p.background ?? "{}"))) {
         add({ doc: "pages", action: "update", kind: "page", id: p.id, label: p.title });
@@ -794,7 +811,7 @@ function diff({ registry, db }: Deps, plan: Plan, d: DiffInput) {
     for (const w of plan.widgets) {
       const name = registry.get(w.type)?.def.name ?? w.type;
       const label = `${w.title || name} · ${titles.get(w.pageId)}`;
-      const old = d.dbWidgets.find((r) => r.id === w.id);
+      const old = oldWidgets.get(w.id);
       if (!old) add({ doc: "pages", action: "add", kind: "widget", id: w.id, label });
       else {
         const same =

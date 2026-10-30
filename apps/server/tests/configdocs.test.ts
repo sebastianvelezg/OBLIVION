@@ -454,3 +454,62 @@ card: { style: solid, radius: 14 }
     }
   });
 });
+
+describe("configuración en texto: nada sensible se guarda en claro", () => {
+  const widget = (config: string) => `pages:
+  - id: inicio
+    title: Inicio
+    widgets:
+      - id: eco
+        type: demo.echo
+        config: ${config}
+`;
+  const stored = (db: any) =>
+    JSON.stringify(db.prepare("SELECT key, value FROM settings").all()) + JSON.stringify(db.prepare("SELECT config FROM widgets").all());
+
+  it("tapa el secreto escrito entre comillas, en línea, a mitad de una referencia o en una clave ignorada", async () => {
+    const { app, db } = await makeApp();
+    const c = await loggedInAdmin(app);
+    process.env.OBLIVION_VAR_ECHO_TOKEN = "del-entorno";
+    for (const config of [
+      `{ name: Ana, token: "uno-secreto-1" }`,
+      `
+          name: Ana
+          token: 'dos-secreto-2'  # comentario`,
+      `{ name: Ana, token: "dos-{{OBLIVION_VAR_ECHO_TOKEN}}-secreto-3" }`,
+      `{ name: Ana, password: cuatro-secreto-4 }`,
+    ]) {
+      const res = await apply(c, { pages: widget(config) });
+      assert.equal(res.status, 200, JSON.stringify(res.json));
+      const everything = stored(db) + JSON.stringify((await c.get("/api/config")).json);
+      assert.doesNotMatch(everything, /(uno|dos|cuatro)-secreto/);
+    }
+  });
+
+  it("una referencia pura a una variable sí se conserva en el texto", async () => {
+    const { app } = await makeApp();
+    const c = await loggedInAdmin(app);
+    process.env.OBLIVION_VAR_ECHO_TOKEN = "del-entorno";
+    await apply(c, { pages: widget(`{ name: Ana, token: "{{OBLIVION_VAR_ECHO_TOKEN}}" }`) });
+    assert.match((await docs(c)).pages, /\{\{OBLIVION_VAR_ECHO_TOKEN\}\}/);
+  });
+
+  it("las variables de entorno solo se leen en campos secretos", async () => {
+    const { app } = await makeApp();
+    const c = await loggedInAdmin(app);
+    process.env.OBLIVION_VAR_ECHO_TOKEN = "no-deberia-verse";
+    const res = await apply(c, { pages: widget(`{ name: "{{OBLIVION_VAR_ECHO_TOKEN}}" }`) });
+    assert.equal(res.status, 200, JSON.stringify(res.json));
+    const w = (await c.get("/api/pages")).json.pages[0].widgets[0];
+    assert.equal(w.config.name, "{{OBLIVION_VAR_ECHO_TOKEN}}");
+    assert.equal(JSON.stringify((await c.get("/api/pages")).json).includes("no-deberia-verse"), false);
+  });
+
+  it("un documento anidado hasta el absurdo es un error, no un fallo del servidor", async () => {
+    const { app } = await makeApp();
+    const c = await loggedInAdmin(app);
+    const res = await plan(c, { appearance: "a: " + "[".repeat(40_000) + "]".repeat(40_000) });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, false);
+  });
+});

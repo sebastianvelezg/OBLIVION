@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, type KeyboardEvent } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, type KeyboardEvent } from "react";
 
 export interface CodeEditorHandle {
   /** Lleva el cursor al principio de la línea (1 = primera) y la deja a la vista. */
@@ -25,7 +25,12 @@ export const CodeEditor = forwardRef<
 >(function CodeEditor({ value, onChange, label, errorLines = [], warnLines = [], onSave }, ref) {
   const area = useRef<HTMLTextAreaElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
-  const count = value.split("\n").length;
+  // Los números van en un solo bloque de texto (no un elemento por línea): un documento largo no frena al escribir.
+  const numbers = useMemo(() => {
+    let count = 1;
+    for (let i = value.indexOf("\n"); i !== -1; i = value.indexOf("\n", i + 1)) count++;
+    return Array.from({ length: count }, (_, i) => i + 1).join("\n");
+  }, [value]);
 
   useImperativeHandle(ref, () => ({
     goToLine(line) {
@@ -52,8 +57,10 @@ export const CodeEditor = forwardRef<
       e.preventDefault();
       onSave?.();
     } else if (e.key === "Escape") {
-      // Cerrar el diálogo sin querer perdería lo escrito: aquí Esc no hace nada.
+      // Tab escribe espacios, así que Esc suelta el cursor del editor para poder salir con el teclado.
+      // No cierra el diálogo: se perdería lo escrito sin querer.
       e.preventDefault();
+      ta.blur();
     } else if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       insert(ta, "  ");
@@ -67,16 +74,20 @@ export const CodeEditor = forwardRef<
     }
   }
 
-  const bad = new Set(errorLines);
-  const warn = new Set(warnLines);
-
   return (
     <div className="code-editor">
       <div className="code-gutter" ref={gutter} aria-hidden>
-        {Array.from({ length: count }, (_, i) => (
-          <div key={i} className={bad.has(i + 1) ? "is-bad" : warn.has(i + 1) ? "is-warn" : undefined}>
-            {i + 1}
-          </div>
+        <pre>{numbers}</pre>
+        {/* Las líneas con problema se marcan encima de los números (cada línea mide LINE_HEIGHT). */}
+        {warnLines.map((n) => (
+          <span key={`w${n}`} className="mark is-warn" style={{ top: `calc(0.6rem + ${(n - 1) * LINE_HEIGHT}px)` }}>
+            {n}
+          </span>
+        ))}
+        {errorLines.map((n) => (
+          <span key={`e${n}`} className="mark is-bad" style={{ top: `calc(0.6rem + ${(n - 1) * LINE_HEIGHT}px)` }}>
+            {n}
+          </span>
         ))}
       </div>
       <textarea

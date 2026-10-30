@@ -21,6 +21,18 @@ const KIND: Record<ConfigChange["kind"], string> = {
 
 const SIGN: Record<ConfigChange["action"], string> = { add: "+", update: "~", remove: "−" };
 
+/** Huella rápida (FNV-1a) del contenido: sirve para saber si cambió algo sin guardar ni comparar el texto entero. */
+function fingerprint(docs: Partial<Record<ConfigDocId, string>>): string {
+  let h = 0x811c9dc5;
+  let length = 0;
+  for (const id of Object.keys(docs).sort()) {
+    const text = `${id}\u0000${docs[id as ConfigDocId]}`;
+    length += text.length;
+    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  }
+  return `${(h >>> 0).toString(36)}-${length}`;
+}
+
 /** «+2 nuevos · ~1 cambiado · −3 eliminados» */
 function summary(changes: ConfigChange[]): string {
   const words = { add: ["nuevo", "nuevos"], update: ["cambiado", "cambiados"], remove: ["eliminado", "eliminados"] } as const;
@@ -66,17 +78,22 @@ export function ConfigTextPanel() {
     return out;
   }, [server, local]);
   const dirtyIds = Object.keys(payload) as ConfigDocId[];
-  const key = JSON.stringify(payload);
+  // La clave de la consulta es una huella corta del texto, no el texto entero (puede ser muy largo).
+  const key = useMemo(() => fingerprint(payload), [payload]);
 
   // Revisión en vivo: se espera un momento a que termines de escribir.
   const [settled, setSettled] = useState(key);
+  const settledPayload = useRef(payload);
   useEffect(() => {
-    const t = setTimeout(() => setSettled(key), 450);
+    const t = setTimeout(() => {
+      settledPayload.current = payload;
+      setSettled(key);
+    }, 600);
     return () => clearTimeout(t);
-  }, [key]);
+  }, [key, payload]);
   const plan = useQuery({
     queryKey: ["config-plan", settled],
-    queryFn: () => api.post<ConfigPlanDTO>("/config/plan", { documents: JSON.parse(settled) }),
+    queryFn: () => api.post<ConfigPlanDTO>("/config/plan", { documents: settledPayload.current }),
     enabled: dirtyIds.length > 0,
     staleTime: Infinity,
     gcTime: 0,
@@ -270,7 +287,7 @@ export function ConfigTextPanel() {
             </li>
             <li>
               Para no escribir un secreto aquí, define una variable <code>OBLIVION_VAR_LO_QUE_SEA</code> en el contenedor y úsala como{" "}
-              <code>{"{{OBLIVION_VAR_LO_QUE_SEA}}"}</code>.
+              <code>{"{{OBLIVION_VAR_LO_QUE_SEA}}"}</code> (solo en campos secretos).
               {server.variables.length > 0 && (
                 <>
                   {" "}
@@ -278,6 +295,7 @@ export function ConfigTextPanel() {
                 </>
               )}
             </li>
+            <li>En el editor, <kbd>Tab</kbd> escribe espacios; <kbd>Esc</kbd> suelta el cursor para poder salir con el teclado.</li>
             <li>Los widgets sin <code>layout</code> se colocan en el primer hueco libre. El orden de las páginas es el de la lista.</li>
             <li>Tu texto se conserva con sus comentarios hasta que cambies algo desde la interfaz; entonces se vuelve a generar.</li>
           </ul>
