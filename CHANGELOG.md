@@ -4,6 +4,8 @@ Todos los cambios relevantes se documentan aquí. El formato sigue [Keep a Chang
 
 ## [Sin publicar]
 
+## [0.3.0] — Diseño personalizable y configuración en texto
+
 ### Añadido
 
 - **Configuración en texto (YAML):** en **Ajustes → Texto** las conexiones, las páginas con sus widgets (y su posición y tamaño) y la apariencia son tres documentos que se editan como texto, se descargan o se cargan desde un archivo. Se revisan mientras escribes (errores con su línea), enseñan qué cambiará y se aplican **todo o nada**. Los secretos nunca salen en claro (`••••••••` conserva el guardado) y pueden venir de variables de entorno con `{{OBLIVION_VAR_NOMBRE}}`. Ver [guía](docs/configuration.md#configuración-en-texto-yaml).
@@ -86,6 +88,7 @@ Primera versión pública (alfa).
 - **Docker:** imagen multiplataforma (amd64 y arm64) que corre sin root, con sistema de archivos de solo lectura y sin capacidades de Linux.
 - Documentación de instalación, configuración, integraciones, plugins, seguridad y desarrollo.
 
-[Sin publicar]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.2.0...HEAD
+[Sin publicar]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sebastianvelezg/OBLIVION/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sebastianvelezg/OBLIVION/releases/tag/v0.1.0
