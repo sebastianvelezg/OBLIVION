@@ -49,6 +49,7 @@ const plugin = {
 
         return {
           kind: "list",
+          scroll: true,
           empty: "Los feeds no tienen titulares.",
           items: entries.slice(0, limit).map((e) => ({
             title: e.title,

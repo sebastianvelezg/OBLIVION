@@ -29,16 +29,17 @@ Los dashboards de homelab suelen pedirte editar archivos de configuración y se 
 ## Características
 
 **Editor visual**
-- Arrastra, redimensiona, configura y borra widgets; varias páginas; todo se guarda en el servidor. Nada de YAML.
+- Arrastra, redimensiona, configura y borra widgets; varias páginas; todo se guarda en el servidor.
 - Se adapta al móvil.
 
 **Personalización a fondo** (botón 🎨, con vista en vivo)
-- 10 estilos listos: **Cristal**, **Sólido**, **Minimalista**, **Contorno**, **Neón**, **Brutalista**, **Editorial**, **Burbuja**, **Profundo** y **Terminal**.
-- 6 paletas, modo oscuro/claro/automático y color de acento libre.
+- 14 estilos listos: **Taller**, **Bento**, **Papel**, **Fotografía**, **Cristal**, **Sólido**, **Minimalista**, **Contorno**, **Neón**, **Brutalista**, **Editorial**, **Burbuja**, **Profundo** y **Terminal**.
+- 8 paletas, modo oscuro/claro/automático y color de acento libre.
 - Tarjetas con opacidad, desenfoque, redondeo y sombra ajustables.
 - Fondo: aurora, liso, degradado o **tu propia foto** (con desenfoque y oscurecimiento), y **uno distinto por página**.
 - Retoques **por widget**: color de acento y opacidad propios (p. ej. rojo para alertas), título visible u oculto y enlace.
-- 3 densidades y 3 tipografías.
+- 3 densidades y 4 tipografías.
+- Widgets que **se adaptan a su tamaño** (S · M · L · XL), redimensionables desde cualquier borde, con modo de colocación compacto o libre.
 
 **Widgets de uso diario**
 - **Notas** en Markdown con tareas que se marcan con un clic.

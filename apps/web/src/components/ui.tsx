@@ -29,7 +29,10 @@ export function Modal({
       ref={ref}
       className="modal"
       style={wide ? { width: "min(760px, calc(100vw - 2rem))" } : undefined}
-      onClose={onClose}
+      // En desarrollo, StrictMode cierra y reabre el diálogo al montarlo: ese «close» ya viejo no cuenta.
+      onClose={() => {
+        if (!ref.current?.open) onClose();
+      }}
       onClick={(e) => {
         if (e.target === ref.current) onClose(); // clic en el fondo
       }}

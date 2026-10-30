@@ -28,8 +28,10 @@ export const appearanceSchema = z.object({
   mode: z.enum(["dark", "light", "system"]),
   palette: z.enum(PALETTE_IDS),
   accent: hex,
-  font: z.enum(["sans", "mono", "serif"]),
+  font: z.enum(["sans", "mono", "serif", "humanist"]),
   density: z.enum(["compact", "comfortable", "spacious"]),
+  // Instalaciones anteriores no lo guardaron: sin este valor por defecto se descartaría toda su apariencia.
+  layout: z.object({ free: z.boolean() }).default({ free: false }),
   card: z.object({
     style: z.enum(["glass", "solid", "outline", "flat", "neon", "brutal"]),
     opacity: z.number().int().min(20).max(100),
@@ -48,8 +50,8 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 /**
- * Borra del disco las imágenes que ya no usa nadie (ni la apariencia ni el fondo de
- * alguna página). Respeta las recientes: una imagen recién subida aún no está
+ * Borra del disco las imágenes que ya no usa nadie (ni la apariencia, ni el fondo de
+ * alguna página, ni la imagen de algún widget). Respeta las recientes: una imagen recién subida aún no está
  * referenciada y un guardado anterior no debe llevársela por delante.
  */
 export function collectBackgroundGarbage(db: DB, uploadsDir: string, now = Date.now()) {
@@ -70,6 +72,10 @@ export function collectBackgroundGarbage(db: DB, uploadsDir: string, now = Date.
   for (const row of db.prepare("SELECT background FROM pages").all() as { background: string | null }[]) {
     note(row.background, (v) => v?.imageId);
   }
+  // Imagen de fondo de cada widget.
+  for (const row of db.prepare("SELECT style FROM widgets").all() as { style: string | null }[]) {
+    note(row.style, (v) => v?.image);
+  }
 
   for (const name of fs.readdirSync(uploadsDir)) {
     if (keep.has(name) || !BACKGROUND_ID_PATTERN.test(name)) continue;
@@ -79,22 +85,22 @@ export function collectBackgroundGarbage(db: DB, uploadsDir: string, now = Date.
   }
 }
 
+/** La apariencia guardada (o la de fábrica si aún no hay o está rota). */
+export function loadAppearance(db: DB): Appearance {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'appearance'").get() as { value: string } | undefined;
+  if (!row) return DEFAULT_APPEARANCE;
+  try {
+    const parsed = appearanceSchema.safeParse(JSON.parse(row.value));
+    if (parsed.success) return parsed.data;
+  } catch {
+    /* JSON roto: caemos al valor por defecto */
+  }
+  return DEFAULT_APPEARANCE;
+}
+
 export function appearanceRoutes({ db, config }: AppDeps) {
   const app = new Hono<AppEnv>();
-
-  function load(): Appearance {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'appearance'").get() as
-      | { value: string }
-      | undefined;
-    if (!row) return DEFAULT_APPEARANCE;
-    try {
-      const parsed = appearanceSchema.safeParse(JSON.parse(row.value));
-      if (parsed.success) return parsed.data;
-    } catch {
-      /* JSON roto: caemos al valor por defecto */
-    }
-    return DEFAULT_APPEARANCE;
-  }
+  const load = () => loadAppearance(db);
 
   app.get("/", requireUser, (c) => c.json({ appearance: load() }));
 

@@ -25,6 +25,7 @@ export function Backdrop({ appearance: a, allowImage }: { appearance: Appearance
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" style={{ background: "var(--bg)" }}>
       {!showImage && <div className="absolute inset-0" style={layer} />}
+      {!showImage && <div className="grain" />}
       {showImage && (
         <>
           <div

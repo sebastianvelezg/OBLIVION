@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
+import { useBox } from "../lib/box";
 import { safeHref } from "./LinksWidget";
 
 /** Buscadores incluidos: `{q}` se sustituye por lo escrito (ya codificado para una URL). */
@@ -16,6 +17,7 @@ export const ENGINES: Record<string, { name: string; url: string }> = {
 
 /** Barra de búsqueda: abre el buscador elegido (o uno propio con `%s`) en otra pestaña. */
 export function SearchWidget({ config }: { config: Record<string, any> }) {
+  const box = useBox();
   const [q, setQ] = useState("");
   const custom = typeof config.custom === "string" && config.custom.includes("%s") ? config.custom : null;
   const engine = ENGINES[config.engine as string] ?? ENGINES.google!;
@@ -42,17 +44,26 @@ export function SearchWidget({ config }: { config: Record<string, any> }) {
     setQ("");
   }
 
+  // Versión grande: la barra crece y lleva el nombre del buscador encima.
+  const big = box.h >= 96;
+  const huge = box.h >= 150;
+
   return (
-    <form onSubmit={go} className="flex h-full items-center" role="search">
+    <form onSubmit={go} className="flex size-full flex-col justify-center gap-2" role="search">
+      {big && <span className="text-xs font-semibold text-muted">Buscar con {name}</span>}
       <label className="relative block w-full">
         <span className="sr-only">Buscar con {name}</span>
-        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+        <Search
+          size={huge ? 20 : 16}
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted ${huge ? "left-4" : "left-3"}`}
+          aria-hidden
+        />
         <input
-          className="input pl-9"
+          className={`input ${huge ? "py-4 pl-12 text-lg" : big ? "py-3 pl-10 text-base" : "pl-9"}`}
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={`Buscar con ${name}…`}
+          placeholder={box.narrow ? "Buscar…" : `Buscar con ${name}…`}
           maxLength={300}
           autoComplete="off"
         />

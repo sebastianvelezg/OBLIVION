@@ -1,4 +1,5 @@
 import type { ChartView } from "@oblivion/sdk";
+import { useBox } from "../lib/box";
 
 const COLORS = ["var(--accent)", "var(--good)", "var(--warn)", "var(--bad)"];
 const W = 300;
@@ -11,6 +12,9 @@ function fmt(n: number) {
 
 /** Gráfica de líneas en SVG (sin dependencias). Todo se pinta como gráficos, nunca como HTML del plugin. */
 export function Chart({ view }: { view: ChartView }) {
+  const box = useBox();
+  // Con poco alto solo queda la gráfica y las cifras actuales; con más, también fechas y nota.
+  const roomy = box.h >= 170;
   const n = Math.max(...view.series.map((s) => s.points.length));
   if (!Number.isFinite(n) || n < 2) return <p className="text-sm text-muted">Aún no hay datos suficientes.</p>;
 
@@ -37,11 +41,13 @@ export function Chart({ view }: { view: ChartView }) {
         ))}
       </figcaption>
 
-      <div className="relative min-h-24 flex-1">
-        <span className="absolute left-0 top-0 text-[10px] tabular-nums text-muted">
-          {fmt(max / 1.12)}
-          {unit}
-        </span>
+      <div className="relative min-h-10 flex-1">
+        {roomy && (
+          <span className="absolute left-0 top-0 text-[10px] tabular-nums text-muted">
+            {fmt(max / 1.12)}
+            {unit}
+          </span>
+        )}
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="size-full overflow-visible" role="img" aria-label={`Gráfica. ${summary}`}>
           {[0, 0.5, 1].map((f) => (
             <line key={f} x1={0} x2={W} y1={PAD + f * (H - PAD * 2)} y2={PAD + f * (H - PAD * 2)} stroke="var(--line)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
@@ -66,13 +72,13 @@ export function Chart({ view }: { view: ChartView }) {
         })}
       </div>
 
-      {view.labels && view.labels.length > 1 && (
+      {roomy && view.labels && view.labels.length > 1 && (
         <div className="flex justify-between text-[10px] text-muted">
           <span>{view.labels[0]}</span>
           <span>{view.labels[view.labels.length - 1]}</span>
         </div>
       )}
-      {view.caption && <figcaption className="text-xs text-muted">{view.caption}</figcaption>}
+      {roomy && view.caption && <figcaption className="text-xs text-muted">{view.caption}</figcaption>}
     </figure>
   );
 }

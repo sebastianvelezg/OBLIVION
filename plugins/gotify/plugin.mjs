@@ -47,6 +47,7 @@ const plugin = {
             {
               view: {
                 kind: "list",
+                scroll: true,
                 empty: "No hay notificaciones.",
                 items: list.slice(0, limit).map((m) => {
                   const p = Number(m.priority) || 0;

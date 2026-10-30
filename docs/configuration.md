@@ -59,13 +59,26 @@ Cómo hacer copia de seguridad: [Instalación → Copia de seguridad](installati
 
 Los widgets de servicios (Jellyfin, Jellyseerr, qBittorrent, Transmission, Speedtest Tracker, Glances, Docker, Pi-hole, AdGuard Home, Uptime Kuma, estado de servicios, clima) están en [Integraciones](integrations.md).
 
+### Tamaño y colocación
+
+En modo **Editar** cada widget lleva una barra sobre su borde superior:
+
+- **S · M · L · XL** cambian su tamaño de un clic (cada widget define sus medidas; también puedes elegir el tamaño inicial al añadirlo).
+- Arrastra el widget por cualquier punto para moverlo y **estira cualquier borde o esquina** para redimensionarlo; mientras lo haces ves su tamaño en celdas y las guías de la grilla.
+- **Duplicar**, **configurar** y **eliminar** están en la misma barra. `Esc` o **Listo** salen del modo edición.
+- La barra de abajo cambia entre **Compacto** (los widgets se pegan arriba sin huecos) y **Libre** (cada uno se queda donde lo sueltes).
+
+El contenido se adapta solo al espacio: un reloj pequeño enseña la hora; uno grande, también la fecha, la zona y el avance del año. En pantallas más estrechas los widgets pasan a 2–3 columnas y, en el móvil, a una.
+
 ### Aspecto de cada widget
 
 En el formulario de cualquier widget, el apartado **Aspecto de este widget** permite retocarlo sin cambiar el estilo global:
 
 - **Título en la tarjeta:** *Automático* (solo si escribes uno), *Mostrar siempre* (con el nombre del widget si no hay título) u *Ocultar*.
 - **Color de acento propio:** p. ej. un **rojo** para que un widget de alertas destaque; también cambia el borde y el resplandor en los estilos Neón y Brutalista.
+- **Sin tarjeta:** el contenido va directamente sobre el fondo (ideal para reloj, saludo o buscador).
 - **Opacidad propia** del fondo de la tarjeta.
+- **Imagen de fondo** del widget, con oscurecimiento y desenfoque. El widget **Imagen** usa esto mismo, con un texto opcional encima.
 - **Enlace del título:** a dónde lleva al pulsarlo (por defecto, la URL de su conexión).
 
 ## Apariencia
@@ -74,11 +87,11 @@ El botón **🎨** abre un panel lateral que **no tapa el dashboard**: ves los c
 
 | Sección | Opciones |
 |---|---|
-| **Estilo** | *Cristal*, *Sólido*, *Minimalista*, *Contorno*, *Neón* (borde y resplandor del acento), *Brutalista* (bordes gruesos y sombra dura), *Editorial* (serifa, amplio), *Burbuja* (muy redondeado), *Profundo* (cristal casi opaco con degradado) y *Terminal*. Cambian la forma (tarjetas, densidad, fondo, letra) sin tocar tu paleta ni tu acento. |
-| **Color** | Modo oscuro / claro / sistema · 6 paletas (*Medianoche, Grafito, Océano, Bosque, Ciruela, Brasa*) · 8 acentos o uno libre. |
+| **Estilo** | *Taller* (por defecto), *Bento*, *Papel*, *Fotografía*, *Cristal*, *Sólido*, *Minimalista*, *Contorno*, *Neón* (borde y resplandor del acento), *Brutalista* (bordes gruesos y sombra dura), *Editorial* (serifa, amplio), *Burbuja* (muy redondeado), *Profundo* (cristal casi opaco con degradado) y *Terminal*. Cambian la forma (tarjetas, densidad, fondo, letra) sin tocar tu paleta ni tu acento. |
+| **Color** | Modo oscuro / claro / sistema · 8 paletas (*Medianoche, Grafito, Océano, Bosque, Ciruela, Brasa, Arena, Tinta*) · 8 acentos o uno libre. |
 | **Tarjetas** | Estilo (cristal, sólido, contorno, plano, neón, brutal), opacidad, desenfoque, redondeo y sombra. |
 | **Fondo** | *Aurora*, *Liso*, *Degradado* (dos colores y ángulo) o *Foto* (con desenfoque y oscurecimiento). |
-| **Disposición y letra** | Densidad (compacta, cómoda, amplia) y tipografía (moderna, terminal, editorial). |
+| **Disposición y letra** | Al mover widgets (compacto o libre), densidad (compacta, cómoda, amplia) y tipografía (moderna, humanista, terminal, editorial). |
 
 **Fondo distinto por página:** en modo **Editar**, el lápiz de la página (o doble clic en su nombre) abre **Fondo propio**: actívalo y elige aurora, liso, degradado o una foto solo para esa página. Al desactivarlo vuelve al fondo general.
 

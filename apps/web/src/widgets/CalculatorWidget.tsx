@@ -1,5 +1,6 @@
 import { Delete } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
+import { useBox } from "../lib/box";
 
 type Op = "+" | "-" | "×" | "÷";
 
@@ -33,6 +34,7 @@ function fmt(n: number): string {
 
 /** Calculadora de "ejecución inmediata" (sin eval). */
 export function CalculatorWidget() {
+  const box = useBox();
   const [s, setS] = useState<State>(INITIAL);
 
   const digit = (d: string) =>
@@ -98,12 +100,14 @@ export function CalculatorWidget() {
   ];
 
   return (
-    <div className="flex h-full flex-col gap-2 outline-none" tabIndex={0} onKeyDown={onKey} aria-label="Calculadora">
+    <div className="flex size-full flex-col gap-2 outline-none" tabIndex={0} onKeyDown={onKey} aria-label="Calculadora">
       <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2">
         <button className="btn btn-ghost btn-icon" onClick={back} aria-label="Borrar último dígito">
           <Delete size={16} />
         </button>
-        <output className="truncate text-right text-3xl font-semibold tabular-nums">{s.display}</output>
+        <output className="display truncate text-right" style={{ fontSize: Math.round(Math.min(40, Math.max(22, box.h * 0.1))) }}>
+          {s.display}
+        </output>
       </div>
       <div className="grid flex-1 grid-cols-4 gap-1.5">
         {keys.map((k) => (
@@ -111,7 +115,7 @@ export function CalculatorWidget() {
             key={k.label}
             onClick={k.run}
             style={k.span ? { gridColumn: `span ${k.span}` } : undefined}
-            className={`rounded-xl text-lg font-medium transition-colors ${
+            className={`rounded-xl ${box.h < 230 ? "text-sm" : "text-lg"} font-medium transition-colors ${
               k.kind === "eq"
                 ? "bg-accent text-accent-fg hover:brightness-110"
                 : k.kind === "op"

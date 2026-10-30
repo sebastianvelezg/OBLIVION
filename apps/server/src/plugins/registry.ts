@@ -90,6 +90,7 @@ export class PluginRegistry {
       icon: def.icon,
       defaultSize: def.defaultSize,
       minSize: def.minSize ?? { w: 1, h: 1 },
+      sizes: def.sizes,
       config: def.config,
       connection,
       testable: typeof plugin.test === "function",

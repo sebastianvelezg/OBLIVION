@@ -42,9 +42,20 @@ export const PALETTES: Record<PaletteId, { name: string; dark: Tokens; light: To
     dark: { bg: "#140c0a", solid: "#211410", surface2: "#2d1d17", fg: "#f6ece6", muted: "#b09585" },
     light: { bg: "#f8eee8", solid: "#ffffff", surface2: "#f3e6de", fg: "#2a140c", muted: "#957060" },
   },
+  sand: {
+    name: "Arena",
+    dark: { bg: "#13110e", solid: "#1d1a16", surface2: "#292520", fg: "#efe9df", muted: "#9b9285" },
+    light: { bg: "#f0ebe1", solid: "#fbf8f2", surface2: "#e9e3d6", fg: "#1f1b16", muted: "#7a7164" },
+  },
+  ink: {
+    name: "Tinta",
+    dark: { bg: "#0b0f15", solid: "#121822", surface2: "#1a2230", fg: "#e6ebf2", muted: "#8794a8" },
+    light: { bg: "#e8ecf2", solid: "#fdfdfe", surface2: "#e0e6ee", fg: "#0f1722", muted: "#64728a" },
+  },
 };
 
 export const ACCENTS = [
+  { name: "Terracota", value: "#e0793f" },
   { name: "Índigo", value: "#7c8cff" },
   { name: "Violeta", value: "#a78bfa" },
   { name: "Rosa", value: "#f472b6" },
@@ -53,12 +64,35 @@ export const ACCENTS = [
   { name: "Lima", value: "#a3e635" },
   { name: "Menta", value: "#34d399" },
   { name: "Cian", value: "#22d3ee" },
+  { name: "Salvia", value: "#9db08b" },
 ];
 
-export const FONTS: Record<Appearance["font"], { name: string; stack: string }> = {
-  sans: { name: "Moderna", stack: '"Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' },
-  mono: { name: "Terminal", stack: '"Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
-  serif: { name: "Editorial", stack: '"Newsreader Variable", ui-serif, Georgia, "Times New Roman", serif' },
+/** `stack` para el texto; `display` para cifras y títulos grandes (reloj, saludo, métricas). */
+export const FONTS: Record<Appearance["font"], { name: string; stack: string; display: string; weight: number }> = {
+  sans: {
+    name: "Moderna",
+    stack: '"Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    display: '"Geist Variable", ui-sans-serif, system-ui, sans-serif',
+    weight: 560,
+  },
+  humanist: {
+    name: "Humanista",
+    stack: '"Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    display: '"Instrument Serif", ui-serif, Georgia, serif',
+    weight: 400,
+  },
+  mono: {
+    name: "Terminal",
+    stack: '"Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    display: '"Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    weight: 500,
+  },
+  serif: {
+    name: "Editorial",
+    stack: '"Newsreader Variable", ui-serif, Georgia, "Times New Roman", serif',
+    display: '"Newsreader Variable", ui-serif, Georgia, serif',
+    weight: 500,
+  },
 };
 
 export const DENSITIES: Record<Appearance["density"], { name: string; gap: number; row: number; pad: number }> = {
@@ -78,6 +112,56 @@ export interface Preset {
 
 /** Un estilo cambia la forma (tarjetas, densidad, fondo, letra); no toca tu paleta ni tu acento. */
 export const PRESETS: Preset[] = [
+  {
+    id: "workshop",
+    name: "Taller",
+    hint: "Cálido y sobrio: tarjetas sólidas, letra humanista",
+    apply: (a) => ({
+      ...a,
+      font: "humanist",
+      density: "comfortable",
+      card: { style: "solid", opacity: 100, blur: 0, radius: 14, shadow: "soft" },
+      background: { ...a.background, type: a.background.imageId ? "image" : "plain" },
+    }),
+  },
+  {
+    id: "bento",
+    name: "Bento",
+    hint: "Mosaico apretado de bloques planos y redondeados",
+    apply: (a) => ({
+      ...a,
+      font: "humanist",
+      density: "compact",
+      card: { style: "flat", opacity: 100, blur: 0, radius: 24, shadow: "none" },
+      background: { ...a.background, type: a.background.imageId ? "image" : "plain" },
+    }),
+  },
+  {
+    id: "paper",
+    name: "Papel",
+    hint: "Claro y editorial, como una libreta (cambia a modo claro)",
+    apply: (a) => ({
+      ...a,
+      mode: "light",
+      palette: "sand",
+      font: "serif",
+      density: "spacious",
+      card: { style: "solid", opacity: 100, blur: 0, radius: 6, shadow: "soft" },
+      background: { ...a.background, type: "plain" },
+    }),
+  },
+  {
+    id: "photo",
+    name: "Fotografía",
+    hint: "Tu foto de fondo con tarjetas de cristal ligero",
+    apply: (a) => ({
+      ...a,
+      font: "humanist",
+      density: "comfortable",
+      card: { style: "glass", opacity: 38, blur: 16, radius: 18, shadow: "soft" },
+      background: { ...a.background, type: a.background.imageId ? "image" : "aurora", dim: Math.max(a.background.dim, 30) },
+    }),
+  },
   {
     id: "glass",
     name: "Cristal",
@@ -280,6 +364,8 @@ export function applyAppearance(a: Appearance) {
   // ── densidad y tipografía
   set("--card-pad", `${dens.pad}px`);
   set("--app-font", FONTS[a.font].stack);
+  set("--display-font", FONTS[a.font].display);
+  set("--display-weight", String(FONTS[a.font].weight));
 }
 
 // ───────────────────────────── Caché local ─────────────────────────────

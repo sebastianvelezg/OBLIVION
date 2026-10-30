@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Palette, Pencil, Plus, Settings } from "lucide-react";
+import { Check, LayoutGrid, Magnet, Move, Palette, Pencil, Plus, Settings } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogWidget, PageDTO, SessionUser, WidgetDTO } from "@oblivion/sdk";
 import { api } from "../api";
 import { useAppearance } from "../appearance";
 import { AppearancePanel } from "./AppearancePanel";
-import { Grid } from "./Grid";
+import { Grid, type LayoutItem } from "./Grid";
 import { Logo } from "./Logo";
 import { PageDialog } from "./PageDialog";
 import { SettingsDialog } from "./SettingsDialog";
@@ -46,7 +46,7 @@ export function Dashboard({ user }: { user: SessionUser }) {
   const catalog = useMemo(() => new Map((catalogQ.data?.widgets ?? []).map((w) => [w.fullType, w])), [catalogQ.data]);
 
   // El fondo propio de la página activa sustituye al general mientras se la mira.
-  const { setPageBackground } = useAppearance();
+  const { setPageBackground, appearance, update: updateAppearance } = useAppearance();
   const pageBg = JSON.stringify(active?.background ?? null);
   useEffect(() => {
     setPageBackground(JSON.parse(pageBg));
@@ -62,17 +62,24 @@ export function Dashboard({ user }: { user: SessionUser }) {
     }
   }, [active]);
 
+  // Esc cierra el modo edición (si hay un diálogo abierto, Esc ya lo cierra a él).
+  useEffect(() => {
+    if (!editing || dialog) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setEditing(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing, dialog]);
+
   // ───────── layout ─────────
   const saveLayout = useMutation({
-    mutationFn: (v: { pageId: string; items: { id: string; x: number; y: number; w: number; h: number }[] }) =>
-      api.put(`/pages/${v.pageId}/layout`, { items: v.items }),
+    mutationFn: (v: { pageId: string; items: LayoutItem[] }) => api.put(`/pages/${v.pageId}/layout`, { items: v.items }),
     onError: (e) => {
       toast("No se pudo guardar la disposición: " + e.message);
       qc.invalidateQueries({ queryKey: ["pages"] });
     },
   });
 
-  function onLayout(items: { id: string; x: number; y: number; w: number; h: number }[]) {
+  function onLayout(items: LayoutItem[]) {
     if (!active) return;
     const byId = new Map(items.map((i) => [i.id, i]));
     const changed = active.widgets.some((w) => {
@@ -97,6 +104,12 @@ export function Dashboard({ user }: { user: SessionUser }) {
     onError: (e) => toast(e.message),
   });
 
+  const duplicate = useMutation({
+    mutationFn: (w: WidgetDTO) => api.post(`/widgets/${w.id}/duplicate`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pages"] }),
+    onError: (e) => toast(e.message),
+  });
+
   if (pagesQ.isLoading || catalogQ.isLoading) {
     return <div className="grid min-h-screen place-items-center text-sm text-muted">Cargando…</div>;
   }
@@ -104,13 +117,13 @@ export function Dashboard({ user }: { user: SessionUser }) {
   const empty = active && active.widgets.length === 0;
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1500px] px-4 pb-16 pt-5 sm:px-8">
-      <header className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="mr-1 grid size-9 place-items-center rounded-xl bg-accent text-accent-fg">
-          <Logo size={20} />
+    <div className="mx-auto min-h-screen max-w-[1500px] overflow-x-clip px-4 pb-28 pt-6 sm:px-8">
+      <header className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="mr-1 text-accent" title="Oblivion">
+          <Logo size={26} />
         </div>
 
-        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Páginas">
+        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Páginas">
           {pages.map((p) => {
             const on = p.id === active?.id;
             return (
@@ -119,8 +132,8 @@ export function Dashboard({ user }: { user: SessionUser }) {
                 onClick={() => setActiveId(p.id)}
                 onDoubleClick={() => isAdmin && editing && setDialog({ kind: "page", page: p })}
                 aria-current={on ? "page" : undefined}
-                className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                  on ? "bg-accent-soft text-fg" : "text-muted hover:text-fg"
+                className={`relative whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors ${
+                  on ? "text-fg after:bg-accent" : "text-muted after:bg-transparent hover:text-fg"
                 }`}
               >
                 {p.title}
@@ -130,23 +143,28 @@ export function Dashboard({ user }: { user: SessionUser }) {
           {isAdmin && editing && (
             <>
               {active && (
-                <button className="btn btn-ghost btn-icon" onClick={() => setDialog({ kind: "page", page: active })} aria-label="Editar página">
+                <button
+                  className="btn btn-ghost btn-icon"
+                  onClick={() => setDialog({ kind: "page", page: active })}
+                  aria-label="Editar página"
+                  title="Editar página"
+                >
                   <Pencil size={15} />
                 </button>
               )}
-              <button className="btn btn-ghost btn-icon" onClick={() => setDialog({ kind: "page", page: null })} aria-label="Nueva página">
+              <button
+                className="btn btn-ghost btn-icon"
+                onClick={() => setDialog({ kind: "page", page: null })}
+                aria-label="Nueva página"
+                title="Nueva página"
+              >
                 <Plus size={16} />
               </button>
             </>
           )}
         </nav>
 
-        <div className="flex items-center gap-2">
-          {isAdmin && editing && (
-            <button className="btn btn-primary" onClick={() => setDialog({ kind: "add" })}>
-              <Plus size={16} /> Widget
-            </button>
-          )}
+        <div className="flex items-center gap-1.5">
           {isAdmin && (
             <button
               className={`btn btn-icon ${dialog?.kind === "appearance" ? "" : "btn-ghost"}`}
@@ -158,15 +176,14 @@ export function Dashboard({ user }: { user: SessionUser }) {
               <Palette size={18} />
             </button>
           )}
-          {isAdmin && (
-            <button className={`btn ${editing ? "" : "btn-ghost"}`} onClick={() => setEditing((e) => !e)}>
-              {editing ? <Check size={16} /> : <Pencil size={16} />}
-              {editing ? "Listo" : "Editar"}
-            </button>
-          )}
-          <button className="btn btn-ghost btn-icon" onClick={() => setDialog({ kind: "settings" })} aria-label="Ajustes">
+          <button className="btn btn-ghost btn-icon" onClick={() => setDialog({ kind: "settings" })} aria-label="Ajustes" title="Ajustes y conexiones">
             <Settings size={18} />
           </button>
+          {isAdmin && !editing && (
+            <button className="btn" onClick={() => setEditing(true)}>
+              <Pencil size={15} /> Editar
+            </button>
+          )}
         </div>
       </header>
 
@@ -181,21 +198,24 @@ export function Dashboard({ user }: { user: SessionUser }) {
             onDelete={(w) => {
               if (confirm(`¿Eliminar «${w.title || catalog.get(w.type)?.name || w.type}»?`)) remove.mutate(w);
             }}
+            onDuplicate={(w) => duplicate.mutate(w)}
           />
         )}
 
         {empty && (
-          <div className="card mx-auto mt-16 max-w-md p-8 text-center">
-            <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-accent-soft text-2xl">✨</div>
-            <h2 className="text-lg font-semibold tracking-tight">Esta página está vacía</h2>
-            <p className="mt-1 text-sm text-muted">
+          <div className="mx-auto mt-16 max-w-md rounded-2xl border border-dashed border-line p-10 text-center">
+            <div className="mx-auto mb-4 grid size-12 place-items-center rounded-xl border border-line text-muted">
+              <LayoutGrid size={22} strokeWidth={1.5} />
+            </div>
+            <h2 className="display text-3xl">Una página en blanco</h2>
+            <p className="mt-2 text-sm text-muted">
               {isAdmin
-                ? "Pulsa «Editar» y luego «Widget» para añadir tu primer widget."
+                ? "Añade tu primer widget y colócalo donde quieras. Cada uno se puede hacer pequeño, mediano o grande."
                 : "El administrador aún no ha añadido widgets."}
             </p>
             {isAdmin && (
               <button
-                className="btn btn-primary mt-5"
+                className="btn btn-primary mt-6"
                 onClick={() => {
                   setEditing(true);
                   setDialog({ kind: "add" });
@@ -207,6 +227,42 @@ export function Dashboard({ user }: { user: SessionUser }) {
           </div>
         )}
       </main>
+
+      {isAdmin && editing && (
+        <div className="fixed inset-x-0 bottom-5 z-30 flex justify-center px-3" role="toolbar" aria-label="Edición">
+          <div
+            className="edit-chip h-auto gap-1 rounded-2xl p-1.5 shadow-xl"
+            style={{ background: "color-mix(in oklab, var(--surface-solid) 94%, transparent)" }}
+          >
+            <span className="hidden items-center gap-1.5 px-2 text-xs font-medium text-muted sm:flex">
+              <Move size={13} aria-hidden /> Arrastra, estira los bordes o usa S · M · L
+            </span>
+            <button
+              type="button"
+              className="!h-9 !gap-1.5 !px-3 !text-sm"
+              aria-pressed={appearance.layout.free}
+              title={
+                appearance.layout.free
+                  ? "Libre: cada widget se queda donde lo sueltes"
+                  : "Compacto: los widgets se pegan arriba sin dejar huecos"
+              }
+              onClick={() => updateAppearance({ ...appearance, layout: { free: !appearance.layout.free } })}
+            >
+              <Magnet size={14} /> {appearance.layout.free ? "Libre" : "Compacto"}
+            </button>
+            <button type="button" className="!h-9 !gap-1.5 !px-3 !text-sm" onClick={() => setDialog({ kind: "add" })}>
+              <Plus size={15} /> Widget
+            </button>
+            <button
+              type="button"
+              className="!h-9 !gap-1.5 !bg-[var(--accent)] !px-4 !text-sm !text-[var(--accent-fg)]"
+              onClick={() => setEditing(false)}
+            >
+              <Check size={15} /> Listo
+            </button>
+          </div>
+        </div>
+      )}
 
       {dialog?.kind === "add" && active && (
         <AddWidgetDialog pageId={active.id} catalog={catalogQ.data?.widgets ?? []} onClose={() => setDialog(null)} />

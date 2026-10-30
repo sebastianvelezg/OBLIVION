@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { useBox } from "../lib/box";
+
+const DAY = 86_400_000;
 
 export function ClockWidget({ config }: { config: Record<string, any> }) {
+  const box = useBox();
   const [now, setNow] = useState(() => new Date());
   const seconds = !!config.seconds;
 
@@ -33,12 +37,38 @@ export function ClockWidget({ config }: { config: Record<string, any> }) {
     date = now.toLocaleDateString();
   }
 
+  // Qué se enseña según el espacio: la hora siempre; la fecha, la zona y el avance del año, si caben.
+  const showDate = config.date !== false && box.h >= 92;
+  const showZone = (!!tz || badTz) && box.h >= 150;
+  const showYear = box.h >= 210 && box.w >= 200;
+  const reserved = (showDate ? 26 : 0) + (showZone ? 20 : 0) + (showYear ? 44 : 0);
+  const fs = Math.floor(Math.max(26, Math.min((box.h - reserved) * 0.78, box.w / (time.length * 0.5))));
+
+  const start = new Date(now.getFullYear(), 0, 0).getTime();
+  const dayOfYear = Math.floor((now.getTime() - start) / DAY);
+  const total = Math.round((new Date(now.getFullYear(), 11, 31).getTime() - start) / DAY);
+
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="text-5xl font-semibold tracking-tight tabular-nums">{time}</div>
-      {config.date !== false && <div className="mt-1 text-sm text-muted first-letter:uppercase">{date}</div>}
-      {badTz && <div className="mt-2 text-xs text-warn">Zona horaria no válida</div>}
-      {tz && !badTz && <div className="mt-1 text-xs text-muted">{tz}</div>}
+    <div className="flex size-full flex-col justify-center">
+      <div className="display" style={{ fontSize: fs }}>
+        {time}
+      </div>
+      {showDate && <div className="mt-1.5 truncate text-sm text-muted first-letter:uppercase">{date}</div>}
+      {showZone && (
+        <div className={`mt-0.5 truncate text-xs ${badTz ? "text-warn" : "text-muted"}`}>
+          {badTz ? "Zona horaria no válida" : tz}
+        </div>
+      )}
+      {showYear && (
+        <div className="mt-4" title={`Día ${dayOfYear} de ${total}`}>
+          <div className="h-[3px] overflow-hidden rounded-full bg-line">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${(dayOfYear / total) * 100}%` }} />
+          </div>
+          <div className="mt-1.5 text-[11px] tabular-nums text-muted">
+            Día {dayOfYear} de {total}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
