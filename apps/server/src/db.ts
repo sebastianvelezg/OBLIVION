@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { slugify, uniqueId } from "./ids.js";
 
 // esbuild/tsup quita el prefijo `node:` de módulos que solo existen con prefijo
 // (como node:sqlite) y rompe el import. getBuiltinModule evita el problema.
@@ -87,7 +88,41 @@ const MIGRATIONS: Migration[] = [
   ALTER TABLE widgets ADD COLUMN style TEXT NOT NULL DEFAULT '{}';
   ALTER TABLE pages ADD COLUMN background TEXT;
   `,
+  /* 7: ids legibles (`inicio`, `reloj-1`, `jellyfin`) para poder escribirlos en los documentos de configuración */
+  readableIds,
 ];
+
+/**
+ * Cambia los UUID de páginas, conexiones y widgets por ids cortos derivados de su nombre.
+ * Las claves ajenas se comprueban al final de la transacción, así que basta con actualizar
+ * a la vez el padre y los hijos.
+ */
+function readableIds(db: DB) {
+  db.exec("PRAGMA defer_foreign_keys = ON");
+  const rename = (table: "pages" | "connections", label: (row: any) => string, fallback: string, children: string[]) => {
+    const rows = db.prepare(`SELECT * FROM ${table} ORDER BY created_at, rowid`).all() as { id: string }[];
+    const taken = new Set<string>();
+    for (const row of rows) {
+      const id = uniqueId(slugify(label(row), fallback), taken);
+      taken.add(id);
+      db.prepare(`UPDATE ${table} SET id = ? WHERE id = ?`).run(id, row.id);
+      for (const child of children) db.prepare(`UPDATE widgets SET ${child} = ? WHERE ${child} = ?`).run(id, row.id);
+    }
+  };
+  rename("pages", (r) => r.title, "pagina", ["page_id"]);
+  rename("connections", (r) => r.name, "conexion", ["connection_id"]);
+
+  const widgets = db.prepare("SELECT id, type FROM widgets ORDER BY page_id, y, x, rowid").all() as {
+    id: string;
+    type: string;
+  }[];
+  const taken = new Set<string>();
+  for (const w of widgets) {
+    const id = uniqueId(slugify(w.type.replace(/^core\./, ""), "widget"), taken);
+    taken.add(id);
+    db.prepare("UPDATE widgets SET id = ? WHERE id = ?").run(id, w.id);
+  }
+}
 
 /** Campos que antes vivían en cada widget y ahora pertenecen a la conexión del plugin. */
 const LEGACY_CONNECTION: Record<string, { label: string; keys: string[]; identity: string[] }> = {

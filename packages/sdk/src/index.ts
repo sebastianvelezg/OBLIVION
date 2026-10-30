@@ -434,3 +434,46 @@ export type WidgetData =
   | { ok: false; error: string };
 
 export const GRID_COLUMNS = 12;
+
+// ───────── Configuración en texto ─────────
+
+/** Los documentos en los que se puede editar toda la configuración a mano. */
+export const CONFIG_DOC_IDS = ["pages", "connections", "appearance"] as const;
+export type ConfigDocId = (typeof CONFIG_DOC_IDS)[number];
+
+export interface ConfigDocDTO {
+  id: ConfigDocId;
+  /** Nombre de archivo sugerido al descargarlo. */
+  filename: string;
+  text: string;
+}
+
+export interface ConfigDocsDTO {
+  documents: ConfigDocDTO[];
+  /** Variables `OBLIVION_VAR_*` definidas en el servidor (solo el nombre) que se pueden usar como `{{NOMBRE}}`. */
+  variables: string[];
+}
+
+export interface ConfigProblem {
+  doc: ConfigDocId;
+  message: string;
+  /** Línea (1 = primera) del documento donde está el problema, si se conoce. */
+  line?: number;
+  /** Ruta dentro del documento, p. ej. `pages[0].widgets[2].config.url`. */
+  path?: string;
+}
+
+export interface ConfigChange {
+  doc: ConfigDocId;
+  action: "add" | "update" | "remove";
+  kind: "page" | "widget" | "connection" | "appearance";
+  id: string;
+  label: string;
+}
+
+export interface ConfigPlanDTO {
+  ok: boolean;
+  problems: ConfigProblem[];
+  changes: ConfigChange[];
+  warnings: ConfigProblem[];
+}

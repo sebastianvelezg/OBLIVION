@@ -84,7 +84,7 @@ export function authRoutes({ db, config }: AppDeps) {
         "INSERT INTO users (id, username, password_hash, role, created_at) VALUES (?,?,?,?,?)",
       ).run(id, username, hash, "admin", now);
       db.prepare("INSERT INTO pages (id, title, position, created_at) VALUES (?,?,?,?)").run(
-        crypto.randomUUID(),
+        "inicio",
         "Inicio",
         0,
         now,

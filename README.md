@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un dashboard para tu homelab: seguro, bonito y tuyo.</b><br>
-  Editor visual sin YAML, personalización total y plugins sencillos.
+  Editor visual (o todo como texto YAML, si lo prefieres), personalización total y plugins sencillos.
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <img src="docs/img/dashboard-glass.jpg" alt="Oblivion con el estilo Cristal" width="100%">
 </p>
 
-> **English:** Oblivion is a self-hosted, security-focused dashboard for your homelab. Visual drag-and-drop editor (no YAML), deep theming (glass, solid, outline, wallpapers…), built-in notes/reminders/links, and a tiny plugin system (Jellyfin, Jellyseerr, qBittorrent, Transmission, Glances, Docker, Pi-hole, AdGuard Home, Uptime Kuma, Speedtest Tracker, service status and weather included). The interface and documentation are in Spanish for now; translations are welcome.
+> **English:** Oblivion is a self-hosted, security-focused dashboard for your homelab. Visual drag-and-drop editor (or edit everything as YAML text), deep theming (glass, solid, outline, wallpapers…), built-in notes/reminders/links, and a tiny plugin system (Jellyfin, Jellyseerr, qBittorrent, Transmission, Glances, Docker, Pi-hole, AdGuard Home, Uptime Kuma, Speedtest Tracker, service status and weather included). The interface and documentation are in Spanish for now; translations are welcome.
 
 > **Estado: versión alfa (0.x).** Funciona y está probado, pero todavía es joven: haz copia de seguridad antes de actualizar y abre un *issue* si algo no te cuadra.
 
@@ -31,6 +31,10 @@ Los dashboards de homelab suelen pedirte editar archivos de configuración y se 
 **Editor visual**
 - Arrastra, redimensiona, configura y borra widgets; varias páginas; todo se guarda en el servidor.
 - Se adapta al móvil.
+
+**…o todo como texto** (Ajustes → Texto)
+- Conexiones, páginas con sus widgets y su posición, y la apariencia son **tres documentos YAML** que editas de golpe, con revisión en vivo (errores con su línea) y un resumen de lo que cambiará antes de aplicar.
+- Sirven para copiar, versionar con git o clonar tu dashboard. Los secretos nunca salen en claro y se pueden leer de variables de entorno (`{{OBLIVION_VAR_JELLYFIN_KEY}}`).
 
 **Personalización a fondo** (botón 🎨, con vista en vivo)
 - 14 estilos listos: **Taller**, **Bento**, **Papel**, **Fotografía**, **Cristal**, **Sólido**, **Minimalista**, **Contorno**, **Neón**, **Brutalista**, **Editorial**, **Burbuja**, **Profundo** y **Terminal**.

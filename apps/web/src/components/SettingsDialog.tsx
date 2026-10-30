@@ -1,11 +1,12 @@
 import { useState } from "react";
 import type { SessionUser } from "@oblivion/sdk";
 import { AccountPanel } from "./AccountPanel";
+import { ConfigTextPanel } from "./ConfigTextPanel";
 import { ConnectionsPanel } from "./ConnectionsPanel";
 import { Modal, Segmented } from "./ui";
 import { UsersPanel } from "./UsersPanel";
 
-type Tab = "account" | "connections" | "users";
+type Tab = "account" | "connections" | "text" | "users";
 
 export function SettingsDialog({ user, onClose }: { user: SessionUser; onClose: () => void }) {
   const isAdmin = user.role === "admin";
@@ -21,6 +22,7 @@ export function SettingsDialog({ user, onClose }: { user: SessionUser; onClose: 
             options={[
               { value: "account", label: "Mi cuenta" },
               { value: "connections", label: "Conexiones" },
+              { value: "text", label: "Texto" },
               { value: "users", label: "Usuarios" },
             ]}
           />
@@ -29,6 +31,8 @@ export function SettingsDialog({ user, onClose }: { user: SessionUser; onClose: 
           <AccountPanel user={user} />
         ) : tab === "connections" ? (
           <ConnectionsPanel />
+        ) : tab === "text" ? (
+          <ConfigTextPanel />
         ) : (
           <UsersPanel me={user} />
         )}

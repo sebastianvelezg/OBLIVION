@@ -6,6 +6,7 @@ Casi todo se configura desde la propia interfaz. Las variables de entorno son pa
 - [Datos y archivos](#datos-y-archivos)
 - [Páginas y widgets](#páginas-y-widgets)
 - [Apariencia](#apariencia)
+- [Configuración en texto (YAML)](#configuración-en-texto-yaml)
 - [Usuarios, roles y sesiones](#usuarios-roles-y-sesiones)
 
 ## Variables de entorno
@@ -23,6 +24,7 @@ Con Docker se definen en el archivo `.env` junto al `docker-compose.yml` (ver [I
 | `PORT` | `3000` | Puerto interno del servidor *(instalación sin Docker)*. |
 | `HOST` | `0.0.0.0` | Interfaz en la que escucha *(instalación sin Docker)*. |
 | `OBLIVION_DATA_DIR` | `./data` (Docker: `/data`) | Dónde se guardan la base de datos, `master.key` y las imágenes subidas. |
+| `OBLIVION_VAR_*` | *(ninguna)* | Cualquier variable con este prefijo se puede usar como valor en la [configuración en texto](#configuración-en-texto-yaml): `{{OBLIVION_VAR_JELLYFIN_KEY}}`. Así las claves no se escriben en los documentos. |
 | `OBLIVION_PLUGINS_DIR` | `./plugins` (Docker: `/app/plugins`) | Carpetas de plugins, separadas por `:` (en Windows `;`). Ver [Plugins](plugins.md#instalar-plugins-propios). |
 
 ## Datos y archivos
@@ -96,6 +98,76 @@ El botón **🎨** abre un panel lateral que **no tapa el dashboard**: ves los c
 **Fondo distinto por página:** en modo **Editar**, el lápiz de la página (o doble clic en su nombre) abre **Fondo propio**: actívalo y elige aurora, liso, degradado o una foto solo para esa página. Al desactivarlo vuelve al fondo general.
 
 **Foto de fondo:** pulsa *Subir foto* y elige una imagen. Se **reduce y se limpia en tu navegador** antes de subirse (se eliminan los metadatos EXIF, como la ubicación GPS). Acepta JPG, PNG, WebP y AVIF (máx. 8 MB tras el procesado). Solo la ven los usuarios con sesión iniciada. **Restablecer** devuelve todo al aspecto por defecto.
+
+## Configuración en texto (YAML)
+
+Todo lo que configuras con el ratón también se puede ver y editar como texto: **Ajustes → Texto**. Son tres documentos:
+
+| Documento | Qué contiene |
+|---|---|
+| `paginas.yml` | Páginas (orden, título, fondo propio) y, en cada una, sus widgets: tipo, título, conexión, configuración, aspecto, **posición y tamaño** y, en notas y recordatorios, su contenido. |
+| `conexiones.yml` | Las conexiones a tus servicios (URL y credenciales). |
+| `apariencia.yml` | Tema, paleta, acento, tipografía, densidad, disposición, tarjetas y fondo. |
+
+Los generas a partir de lo que ya tienes, así que lo normal es **abrir, cambiar lo que quieras y aplicar**. También puedes **descargar** cada documento, guardarlo en git o **cargar** uno desde un archivo (por ejemplo, para llevarte tu dashboard a otra instalación).
+
+### Cómo se aplica
+
+1. Mientras escribes, el texto se **revisa solo**: los errores salen con su línea (pulsa uno para ir a ella) y los avisos, por ejemplo una clave mal escrita o dos widgets que se solapan, en ámbar.
+2. Debajo ves **qué cambiará**: cuántos elementos se añaden, cambian o se eliminan, con el detalle.
+3. **Aplicar** (o `Ctrl+S` dentro del editor) lo guarda **todo o nada**: si algo falla, no se toca nada.
+
+Cada documento describe **el estado completo** de su parte: lo que no aparece en el texto se elimina (con su contenido, como las notas), y el botón avisa de cuántos elementos se irán. Los de un plugin que ya no está instalado no se muestran y nunca se borran. Lo escrito y no aplicado se conserva al cerrar Ajustes, pero no al recargar la página.
+
+### Formato
+
+```yaml
+# conexiones.yml
+connections:
+  jellyfin:                      # el id: lo eliges tú (minúsculas, números, - y _)
+    plugin: jellyfin
+    name: Jellyfin del salón
+    config:
+      url: http://192.168.0.117:8096
+      apiKey: "{{OBLIVION_VAR_JELLYFIN_KEY}}"
+```
+
+```yaml
+# paginas.yml
+pages:
+  - id: inicio
+    title: Inicio
+    widgets:
+      - id: hora
+        type: core.clock
+        layout: { x: 0, y: 0, w: 4, h: 3 }   # columna, fila, ancho (1-12) y alto
+      - id: novedades
+        type: jellyfin.latest
+        connection: jellyfin                 # id de una conexión de conexiones.yml
+        config: { limit: 8 }
+        style: { accent: "#e0793f", bare: false }
+      - type: core.notes                     # sin id: se crea uno; sin layout: primer hueco libre
+        state: { text: "Comprar café" }
+  - title: Medios
+    background: { type: gradient, from: "#1a1a2e", to: "#16213e", angle: 160 }
+```
+
+```yaml
+# apariencia.yml (lo que omitas vuelve al valor de fábrica)
+mode: dark
+palette: sand
+accent: "#e0793f"
+layout: { free: true }
+card: { style: solid, radius: 14 }
+```
+
+- **Ids:** los eliges tú o los genera Oblivion (`reloj`, `reloj-2`...). El id es lo que hace que un widget conserve su contenido y sus secretos al volver a aplicar: si cambias un id, para Oblivion es un widget nuevo.
+- **Tipos y campos:** el `type` de un widget es el del catálogo (`core.clock`, `jellyfin.latest`...) y sus claves de `config` son las de su formulario. Una clave desconocida da un aviso y se ignora.
+- **Secretos:** se muestran como `••••••••`. Déjalo así para conservar el valor guardado, escribe uno nuevo para cambiarlo (se cifra al aplicar y el documento guardado lo tapa) o pon `null` para borrarlo.
+- **Variables de entorno:** `{{OBLIVION_VAR_LO_QUE_SEA}}` se sustituye por el valor de esa variable del contenedor al aplicar, de modo que el documento puede compartirse o subirse a git sin claves. Solo se leen variables con el prefijo `OBLIVION_VAR_`; si no existe, es un error.
+- **Imágenes:** los documentos citan las fotos por su id (`imageId`, `image`); los archivos no viajan en el texto. Si llevas un documento a otra instalación, vuelve a subir las imágenes desde el panel de apariencia.
+- **Comentarios:** tu texto se conserva tal cual, con sus comentarios, mientras no cambies nada desde la interfaz. Si mueves un widget con el ratón, por ejemplo, el documento se vuelve a generar y los comentarios se pierden.
+- **Alias YAML** (`&ancla` / `*alias`) no están permitidos.
 
 ## Usuarios, roles y sesiones
 

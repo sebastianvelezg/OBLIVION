@@ -508,3 +508,164 @@ dialog.modal::backdrop {
     animation: none !important;
   }
 }
+
+/* ───────── Configuración en texto ───────── */
+.code-editor {
+  display: flex;
+  height: clamp(240px, 36vh, 440px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.code-editor:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.code-gutter {
+  flex: none;
+  min-width: 3.25rem;
+  padding: 0.6rem 0.6rem 0.6rem 0.5rem;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  opacity: 0.85;
+}
+.code-gutter .is-bad {
+  color: var(--bad);
+  font-weight: 700;
+}
+.code-gutter .is-warn {
+  color: var(--warn);
+  font-weight: 700;
+}
+.code-area {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+
+.doc-tabs {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.doc-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: calc(var(--r-sm) - 3px);
+  color: var(--muted);
+  font-size: 0.875rem;
+  transition: color 0.15s, background 0.15s;
+}
+.doc-tab:hover {
+  color: var(--fg);
+}
+.doc-tab[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.doc-tab .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
+.doc-tab .dot.is-bad {
+  background: var(--bad);
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+.problem {
+  display: flex;
+  width: 100%;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  margin: 0 -0.4rem;
+  border-radius: 6px;
+  text-align: left;
+  line-height: 1.35;
+}
+.problem:hover {
+  background: var(--surface-2);
+}
+.problem.is-bad {
+  color: var(--bad);
+}
+.problem.is-warn {
+  color: var(--warn);
+}
+
+.changes summary,
+.help summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--muted);
+}
+.changes summary:hover,
+.help summary:hover {
+  color: var(--fg);
+}
+.changes ul {
+  margin-top: 0.4rem;
+  max-height: 9rem;
+  overflow: auto;
+  display: grid;
+  gap: 1px;
+}
+.changes li {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+.changes .sign {
+  width: 1rem;
+  text-align: center;
+  font-weight: 700;
+}
+.changes .is-add .sign {
+  color: var(--good);
+}
+.changes .is-update .sign {
+  color: var(--warn);
+}
+.changes .is-remove .sign {
+  color: var(--bad);
+}
+.help {
+  max-width: 34rem;
+}
+.help ul {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1rem;
+  list-style: disc;
+}
+.help code {
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  background: var(--surface-2);
+}

@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { requireAdmin, requireUser, type AppEnv } from "../auth.js";
 import { audit, tx } from "../db.js";
+import { newId } from "../ids.js";
 import { buildStoredConfig, ConfigError, maskConfig, normalizeUrl } from "../plugins/config.js";
 import { backgroundSchema, collectBackgroundGarbage } from "./appearance.js";
 import { BACKGROUND_ID_PATTERN } from "@oblivion/sdk";
@@ -186,7 +187,7 @@ export function pageRoutes(deps: AppDeps) {
     if (problem) return c.json({ error: problem }, 400);
     const count = (db.prepare("SELECT COUNT(*) AS n FROM pages").get() as { n: number }).n;
     if (count >= 20) return c.json({ error: "Máximo 20 páginas" }, 400);
-    const id = crypto.randomUUID();
+    const id = newId(db, "pages", parsed.data.title, "pagina");
     const background = parsed.data.background ?? null;
     db.prepare("INSERT INTO pages (id, title, position, created_at, background) VALUES (?,?,?,?,?)").run(
       id,
@@ -309,7 +310,7 @@ export function pageRoutes(deps: AppDeps) {
     const h = Math.max(min.h, want.h);
     const taken = db.prepare("SELECT x, y, w, h FROM widgets WHERE page_id = ?").all(pageId) as unknown as Rect[];
     const slot = findFreeSlot(taken, w, h);
-    const id = crypto.randomUUID();
+    const id = newId(db, "widgets", reg.fullType.replace(/^core\./, ""), "widget");
     db.prepare(
       "INSERT INTO widgets (id, page_id, type, title, config, state, connection_id, style, x, y, w, h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
     ).run(
@@ -402,7 +403,7 @@ export function pageRoutes(deps: AppDeps) {
     if (count >= 100) return c.json({ error: "Máximo 100 widgets por página" }, 400);
     const taken = db.prepare("SELECT x, y, w, h FROM widgets WHERE page_id = ?").all(row.page_id) as unknown as Rect[];
     const slot = findFreeSlot(taken, row.w, row.h);
-    const id = crypto.randomUUID();
+    const id = newId(db, "widgets", row.type.replace(/^core\./, ""), "widget");
     db.prepare(
       "INSERT INTO widgets (id, page_id, type, title, config, state, connection_id, style, x, y, w, h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
     ).run(id, row.page_id, row.type, row.title, row.config, row.state, row.connection_id, row.style, slot.x, slot.y, row.w, row.h);
