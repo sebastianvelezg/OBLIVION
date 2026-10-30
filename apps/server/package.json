@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.0",
+    "@hono/node-server": "^2.1.5",
     "@oblivion/sdk": "*",
     "hono": "^4.6.0",
     "yaml": "^2.9.1",
